@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GD Advogados — Painel de Publicações</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f5f5f4; --surface: #ffffff; --border: #e4e2db;
+  --text: #1c1c1b; --muted: #888780; --accent: #185fa5;
+  --red-bg: #fcebeb; --red: #a32d2d; --red-dark: #791f1f;
+  --amber-bg: #faeeda; --amber: #854f0b;
+  --green-bg: #eaf3de; --green: #3b6d11;
+  --gray-bg: #f1efe8; --gray: #5f5e5a;
+  --radius: 10px; --radius-sm: 6px;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+/* --- TELAS DE CONFIG / LOGIN --- */
+.screen { display: none; min-height: 100vh; align-items: center; justify-content: center; padding: 24px; }
+.screen.active { display: flex; }
+.card-auth { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; width: 100%; max-width: 400px; }
+.card-auth h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+.card-auth p { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
+.field input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--surface); color: var(--text); outline: none; transition: border-color .15s; }
+.field input:focus { border-color: var(--accent); }
+.field small { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
+.btn-primary { width: 100%; padding: 10px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+.btn-primary:hover { opacity: .88; }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-link { background: none; border: none; color: var(--accent); font-size: 12px; cursor: pointer; padding: 0; text-decoration: underline; }
+.msg-erro { background: var(--red-bg); color: var(--red); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; margin-bottom: 16px; display: none; }
+
+/* --- APP PRINCIPAL --- */
+#app { display: none; min-height: 100vh; }
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 20; }
+.logo { font-size: 15px; font-weight: 700; }
+.logo span { font-weight: 400; color: var(--muted); }
+nav { display: flex; gap: 4px; }
+nav button { padding: 6px 14px; border: none; background: none; font-size: 13px; color: var(--muted); border-radius: var(--radius-sm); cursor: pointer; transition: background .1s, color .1s; }
+nav button.active { background: var(--bg); color: var(--text); font-weight: 600; }
+nav button:hover:not(.active) { background: var(--bg); }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.header-right span { font-size: 12px; color: var(--muted); }
+.btn-sm { padding: 6px 12px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-sm); font-size: 12px; cursor: pointer; color: var(--text); transition: background .1s; }
+.btn-sm:hover { background: var(--bg); }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+
+/* --- TABS --- */
+.tab { display: none; }
+.tab.active { display: block; }
+
+/* --- MÉTRICAS --- */
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.metric-num { font-size: 30px; font-weight: 700; line-height: 1; margin-bottom: 3px; }
+.metric-lbl { font-size: 12px; color: var(--muted); }
+.metric.urgente { background: var(--red-bg); border-color: #f09595; }
+.metric.urgente .metric-num { color: var(--red); }
+.metric.atencao { background: var(--amber-bg); border-color: #fac775; }
+.metric.atencao .metric-num { color: var(--amber); }
+
+/* --- FILTROS --- */
+.filtros { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.filtros input, .filtros select { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; background: var(--surface); color: var(--text); outline: none; }
+.filtros input:focus, .filtros select:focus { border-color: var(--accent); }
+.filtros input { flex: 1; min-width: 180px; }
+.contagem { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+
+/* --- TABELA --- */
+.tbl-wrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; }
+thead { background: var(--bg); }
+th { padding: 9px 14px; text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0eeea; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafaf9; }
+.processo-num { font-family: 'Courier New', monospace; font-size: 12px; color: var(--text); }
+.processo-base { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.badge-vencido { background: #501313; color: #fff; }
+.badge-urgente { background: var(--red-bg); color: var(--red); }
+.badge-atencao { background: var(--amber-bg); color: var(--amber); }
+.badge-ok { background: var(--green-bg); color: var(--green); }
+.badge-indeterminado, .badge-sem-data { background: var(--gray-bg); color: var(--gray); }
+.vazio { padding: 48px; text-align: center; color: var(--muted); font-size: 13px; }
+.loading { padding: 48px; text-align: center; color: var(--muted); font-size: 13px; }
+.spin { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; margin-right: 8px; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- CALENDÁRIO --- */
+.cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cal-nav button { padding: 6px 14px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; }
+.cal-nav button:hover { background: var(--bg); }
+.cal-mes { font-size: 16px; font-weight: 600; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-hdr { font-size: 11px; font-weight: 700; text-align: center; color: var(--muted); padding: 4px; text-transform: uppercase; letter-spacing: .04em; }
+.cal-dia { min-height: 72px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px; }
+.cal-dia.outro-mes { opacity: .35; background: var(--bg); }
+.cal-dia.hoje { border-color: var(--accent); border-width: 2px; }
+.cal-num { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
+.cal-dia.hoje .cal-num { color: var(--accent); }
+.cal-item { font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
+.cal-item.urgente { background: var(--red-bg); color: var(--red); }
+.cal-item.vencido { background: #501313; color: #fff; }
+.cal-item.atencao { background: var(--amber-bg); color: var(--amber); }
+.cal-item.ok { background: var(--green-bg); color: var(--green); }
+.cal-legenda { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+.cal-legenda span { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+.cal-legenda i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+
+/* --- RELATÓRIO --- */
+.rel-wrap { max-width: 680px; }
+.rel-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.rel-titulo { font-size: 18px; font-weight: 700; }
+.rel-subtitulo { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.bloco { border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+.bloco-titulo { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+.bloco-item { border-radius: var(--radius-sm); padding: 9px 12px; margin-bottom: 6px; }
+.bloco-item:last-child { margin-bottom: 0; }
+.bloco-item p { font-size: 13px; font-weight: 700; margin-bottom: 2px; font-family: 'Courier New', monospace; }
+.bloco-item small { font-size: 12px; }
+.bloco-urgente { background: var(--red-bg); }
+.bloco-urgente .bloco-titulo { color: var(--red); }
+.bloco-urgente .bloco-item { background: #fff1f0; }
+.bloco-urgente .bloco-item p { color: var(--red-dark); }
+.bloco-urgente .bloco-item small { color: var(--red); }
+.bloco-atencao { background: var(--amber-bg); }
+.bloco-atencao .bloco-titulo { color: var(--amber); }
+.bloco-atencao .bloco-item { background: #fef6e7; }
+.bloco-atencao .bloco-item p { color: #633806; }
+.bloco-atencao .bloco-item small { color: var(--amber); }
+.bloco-ok { border: 1px solid #d3e8b8; }
+.bloco-ok .bloco-titulo { color: var(--green); }
+.bloco-indet { border: 1px solid var(--border); }
+.bloco-indet .bloco-titulo { color: var(--gray); }
+.rel-resumo { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; text-align: center; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); margin-top: 8px; }
+.rel-resumo-num { font-size: 24px; font-weight: 700; line-height: 1; margin-bottom: 3px; }
+.rel-resumo-lbl { font-size: 11px; color: var(--muted); }
+.rel-footer { font-size: 11px; color: #bbb; margin-top: 16px; text-align: center; }
+.btn-imprimir { padding: 8px 18px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.btn-imprimir:hover { background: var(--bg); }
+@media print { header, nav, .filtros, .metrics, .btn-imprimir, .cal-nav { display: none !important; } .tab { display: block !important; } #tab-relatorio { display: block !important; } main { padding: 0; max-width: 100%; } }
+
+/* --- OABS --- */
+.oab-list { display: flex; flex-direction: column; gap: 8px; max-width: 500px; }
+.oab-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+.oab-num { font-size: 15px; font-weight: 700; font-family: monospace; }
+.oab-uf { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.badge-ativo { background: var(--green-bg); color: var(--green); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 5px; }
+.badge-inativo { background: var(--gray-bg); color: var(--gray); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 5px; }
+</style>
+</head>
+<body>
+
+<!-- TELA 1: CONFIGURAÇÃO -->
+<div class="screen active" id="screen-config">
+  <div class="card-auth">
+    <h1>Configurar conexão</h1>
+    <p>Cole as credenciais do seu projeto Supabase. Você as encontra em <strong>Settings → API</strong> no painel do Supabase.</p>
+    <div id="erro-config" class="msg-erro"></div>
+    <div class="field">
+      <label>URL do projeto</label>
+      <input type="url" id="cfg-url" placeholder="https://xxxx.supabase.co">
+    </div>
+    <div class="field">
+      <label>Chave anon (pública)</label>
+      <input type="text" id="cfg-anon" placeholder="eyJhbGciOiJIUzI1NiIs...">
+      <small>Use a chave <strong>anon public</strong>, não a service_role.</small>
+    </div>
+    <button class="btn-primary" onclick="salvarConfig()">Continuar →</button>
+  </div>
+</div>
+
+<!-- TELA 2: LOGIN -->
+<div class="screen" id="screen-login">
+  <div class="card-auth">
+    <h1>GD Advogados</h1>
+    <p>Painel de publicações judiciais. Faça login com seu e-mail cadastrado no Supabase.</p>
+    <div id="erro-login" class="msg-erro"></div>
+    <div class="field">
+      <label>E-mail</label>
+      <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-primary" id="btn-login" onclick="fazerLogin()">Entrar</button>
+    <p style="text-align:center; margin-top:14px; font-size:12px; color:var(--muted)">
+      <button class="btn-link" onclick="voltarConfig()">Alterar configuração</button>
+    </p>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="app">
+  <header>
+    <div class="logo">GD Advogados <span>· Publicações</span></div>
+    <nav>
+      <button class="active" onclick="trocarTab('painel', this)">Painel</button>
+      <button onclick="trocarTab('calendario', this)">Calendário</button>
+      <button onclick="trocarTab('relatorio', this)">Relatório</button>
+      <button onclick="trocarTab('oabs', this)">OABs</button>
+    </nav>
+    <div class="header-right">
+      <span id="usuario-email"></span>
+      <button class="btn-sm" onclick="capturarAgora()" title="Buscar novas publicações">↻ Capturar</button>
+      <button class="btn-sm" onclick="fazerLogout()">Sair</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- TAB: PAINEL -->
+    <div class="tab active" id="tab-painel">
+      <div class="metrics">
+        <div class="metric urgente"><div class="metric-num" id="m-urgente">—</div><div class="metric-lbl">Urgente / vencido</div></div>
+        <div class="metric atencao"><div class="metric-num" id="m-atencao">—</div><div class="metric-lbl">Atenção (4–7 dias)</div></div>
+        <div class="metric"><div class="metric-num" id="m-ok" style="color:var(--green)">—</div><div class="metric-lbl">Em dia</div></div>
+        <div class="metric"><div class="metric-num" id="m-total">—</div><div class="metric-lbl">Total carregado</div></div>
+      </div>
+      <div class="filtros">
+        <input type="text" id="busca" placeholder="Buscar processo, tipo, OAB…" oninput="renderTabela()">
+        <select id="f-status" onchange="renderTabela()">
+          <option value="">Todos os status</option>
+          <option value="vencido">Vencido</option>
+          <option value="urgente">Urgente</option>
+          <option value="atencao">Atenção</option>
+          <option value="ok">Em dia</option>
+          <option value="indeterminado">Indeterminado</option>
+        </select>
+        <select id="f-tipo" onchange="renderTabela()">
+          <option value="">Todos os tipos</option>
+          <option value="Sentença">Sentença</option>
+          <option value="Acórdão">Acórdão</option>
+          <option value="Decisão">Decisão</option>
+          <option value="Despacho">Despacho</option>
+          <option value="Edital">Edital</option>
+        </select>
+      </div>
+      <p class="contagem" id="contagem"></p>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Processo</th>
+              <th>Tipo</th>
+              <th>Tribunal</th>
+              <th>Intimação</th>
+              <th>Vence em</th>
+              <th>Dias úteis</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="7" class="loading"><span class="spin"></span>Carregando publicações…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:12px;text-align:center">
+        Prazos calculados conforme arts. 219, 224 e 231-I do CPC · Feriados nacionais incluídos · Verifique recessos tribunalícios manualmente
+      </p>
+    </div>
+
+    <!-- TAB: CALENDÁRIO -->
+    <div class="tab" id="tab-calendario">
+      <div class="cal-nav">
+        <button onclick="navMes(-1)">← anterior</button>
+        <span class="cal-mes" id="cal-mes-label"></span>
+        <button onclick="navMes(1)">próximo →</button>
+      </div>
+      <div class="cal-grid">
+        <div class="cal-hdr">Dom</div><div class="cal-hdr">Seg</div><div class="cal-hdr">Ter</div>
+        <div class="cal-hdr">Qua</div><div class="cal-hdr">Qui</div><div class="cal-hdr">Sex</div><div class="cal-hdr">Sáb</div>
+      </div>
+      <div class="cal-grid" id="cal-body" style="margin-top:4px"></div>
+      <div class="cal-legenda">
+        <span><i style="background:#E24B4A"></i> Urgente</span>
+        <span><i style="background:#EF9F27"></i> Atenção</span>
+        <span><i style="background:#639922"></i> Em dia</span>
+        <span><i style="background:#501313"></i> Vencido</span>
+      </div>
+    </div>
+
+    <!-- TAB: RELATÓRIO -->
+    <div class="tab" id="tab-relatorio">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div>
+          <p style="font-size:16px;font-weight:600">Relatório diário</p>
+          <p id="rel-data" style="font-size:13px;color:var(--muted)"></p>
+        </div>
+        <button class="btn-imprimir" onclick="window.print()">🖨 Imprimir</button>
+      </div>
+      <div class="rel-wrap" id="rel-conteudo">
+        <div class="loading"><span class="spin"></span>Carregando…</div>
+      </div>
+    </div>
+
+    <!-- TAB: OABs -->
+    <div class="tab" id="tab-oabs">
+      <p style="font-size:16px;font-weight:600;margin-bottom:4px">OABs monitoradas</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Advogados cujas publicações são capturadas automaticamente pelo sistema.</p>
+      <div class="oab-list" id="oab-list">
+        <div class="loading"><span class="spin"></span>Carregando…</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+// ---------------------------------------------------------------------------
+// Estado global
+// ---------------------------------------------------------------------------
+let sb = null
+let REGISTROS = []
+let calAno, calMes
+
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+               'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+const DIAS_URGENTE = 3
+const DIAS_ATENCAO = 7
+
+// ---------------------------------------------------------------------------
+// Config e login
+// ---------------------------------------------------------------------------
+window.salvarConfig = function() {
+  const url  = document.getElementById('cfg-url').value.trim().replace(/\/$/, '')
+  const anon = document.getElementById('cfg-anon').value.trim()
+  const err  = document.getElementById('erro-config')
+  if (!url || !anon) { mostrarErro(err, 'Preencha os dois campos.'); return }
+  if (!url.startsWith('https://')) { mostrarErro(err, 'A URL deve começar com https://'); return }
+  localStorage.setItem('sb_url', url)
+  localStorage.setItem('sb_anon', anon)
+  iniciarCliente(url, anon)
+  mostrar('screen-login')
+}
+
+window.voltarConfig = function() { mostrar('screen-config') }
+
+window.fazerLogin = async function() {
+  const email = document.getElementById('login-email').value.trim()
+  const senha = document.getElementById('login-senha').value
+  const btn   = document.getElementById('btn-login')
+  const err   = document.getElementById('erro-login')
+  if (!email || !senha) { mostrarErro(err, 'Preencha e-mail e senha.'); return }
+  btn.disabled = true; btn.textContent = 'Entrando…'
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: senha })
+  btn.disabled = false; btn.textContent = 'Entrar'
+  if (error) { mostrarErro(err, traduzirErro(error.message)); return }
+  entrarNoApp(data.user)
+}
+
+window.fazerLogout = async function() {
+  await sb.auth.signOut()
+  REGISTROS = []
+  mostrar('screen-login')
+  document.getElementById('app').style.display = 'none'
+}
+
+window.capturarAgora = function() {
+  alert('Para capturar novas publicações, rode:\n\npython capturar.py\n\nna pasta captura-publicacoes.')
+}
+
+function traduzirErro(msg) {
+  if (msg.includes('Invalid login')) return 'E-mail ou senha incorretos.'
+  if (msg.includes('Email not confirmed')) return 'Confirme seu e-mail antes de entrar.'
+  return msg
+}
+
+// ---------------------------------------------------------------------------
+// Inicialização
+// ---------------------------------------------------------------------------
+function iniciarCliente(url, anon) {
+  sb = createClient(url, anon)
+}
+
+function mostrar(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
+  const el = document.getElementById(id)
+  if (el) el.classList.add('active')
+}
+
+function mostrarErro(el, msg) {
+  el.textContent = msg; el.style.display = 'block'
+  setTimeout(() => el.style.display = 'none', 5000)
+}
+
+async function entrarNoApp(user) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
+  document.getElementById('app').style.display = 'block'
+  document.getElementById('usuario-email').textContent = user.email
+
+  const hoje = new Date()
+  calAno = hoje.getFullYear()
+  calMes = hoje.getMonth()
+
+  await carregarTudo()
+}
+
+// ---------------------------------------------------------------------------
+// Tabs
+// ---------------------------------------------------------------------------
+window.trocarTab = function(nome, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'))
+  document.getElementById('tab-' + nome).classList.add('active')
+  btn.classList.add('active')
+  if (nome === 'calendario') renderCalendario()
+  if (nome === 'relatorio')  renderRelatorio()
+  if (nome === 'oabs')       carregarOABs()
+}
+
+// ---------------------------------------------------------------------------
+// Carregar dados do Supabase
+// ---------------------------------------------------------------------------
+async function carregarTudo() {
+  document.getElementById('tbody').innerHTML =
+    '<tr><td colspan="7" class="loading"><span class="spin"></span>Carregando publicações…</td></tr>'
+
+  const { data: prazos, error } = await sb
+    .from('prazos')
+    .select(`
+      id, numero_processo, tipo_prazo, data_disponibilizacao,
+      data_intimacao, data_fim_prazo, dias_uteis, base_legal,
+      publicacoes ( numero_comunicacao, tipo_documento, tribunal,
+                   tipo_comunicacao, capturado_em )
+    `)
+    .order('data_fim_prazo', { ascending: true, nullsFirst: false })
+
+  if (error) {
+    document.getElementById('tbody').innerHTML =
+      `<tr><td colspan="7" class="vazio">Erro ao carregar: ${error.message}</td></tr>`
+    return
+  }
+
+  const hoje = new Date(); hoje.setHours(0,0,0,0)
+
+  REGISTROS = (prazos || []).map(r => {
+    const pub = r.publicacoes || {}
+    let status = 'sem-data'
+    let diasRestantes = null
+
+    if (r.data_fim_prazo) {
+      const vence = new Date(r.data_fim_prazo + 'T12:00:00')
+      const diffMs = vence - hoje
+      const diffDias = Math.ceil(diffMs / 86400000)
+      // aproximação em dias corridos → dias úteis (simplificado para exibição)
+      diasRestantes = r.dias_uteis !== null ? calcDiasUteisRestantes(r.data_fim_prazo) : diffDias
+      if (diasRestantes < 0) status = 'vencido'
+      else if (diasRestantes <= DIAS_URGENTE) status = 'urgente'
+      else if (diasRestantes <= DIAS_ATENCAO) status = 'atencao'
+      else status = 'ok'
+    } else if (r.dias_uteis === null) {
+      status = 'indeterminado'
+    }
+
+    return {
+      id: r.id,
+      numero_processo: r.numero_processo || '—',
+      tipo_doc: r.tipo_prazo || pub.tipo_documento || '—',
+      tribunal: pub.tribunal || '—',
+      data_intimacao: fmtData(r.data_intimacao),
+      data_fim_prazo: fmtData(r.data_fim_prazo),
+      data_fim_iso: r.data_fim_prazo || '',
+      dias_uteis: r.dias_uteis,
+      dias_restantes: diasRestantes,
+      base_legal: r.base_legal || '',
+      status,
+    }
+  })
+
+  atualizarMetricas()
+  renderTabela()
+}
+
+function calcDiasUteisRestantes(dataFimStr) {
+  const hoje = new Date(); hoje.setHours(0,0,0,0)
+  const fim  = new Date(dataFimStr + 'T12:00:00'); fim.setHours(0,0,0,0)
+  if (fim < hoje) return -1
+  let count = 0, d = new Date(hoje)
+  while (d <= fim) {
+    const dow = d.getDay()
+    if (dow !== 0 && dow !== 6) count++
+    d.setDate(d.getDate() + 1)
+  }
+  return count
+}
+
+function fmtData(iso) {
+  if (!iso) return '—'
+  const [a, m, d] = iso.split('-')
+  return `${d}/${m}/${a}`
+}
+
+// ---------------------------------------------------------------------------
+// Métricas
+// ---------------------------------------------------------------------------
+function atualizarMetricas() {
+  const u = REGISTROS.filter(r => r.status === 'urgente' || r.status === 'vencido').length
+  const a = REGISTROS.filter(r => r.status === 'atencao').length
+  const o = REGISTROS.filter(r => r.status === 'ok').length
+  document.getElementById('m-urgente').textContent = u
+  document.getElementById('m-atencao').textContent = a
+  document.getElementById('m-ok').textContent = o
+  document.getElementById('m-total').textContent = REGISTROS.length
+}
+
+// ---------------------------------------------------------------------------
+// Tabela
+// ---------------------------------------------------------------------------
+window.renderTabela = function() {
+  const busca   = document.getElementById('busca').value.toLowerCase()
+  const fstatus = document.getElementById('f-status').value
+  const ftipo   = document.getElementById('f-tipo').value
+  const LABELS  = { vencido:'Vencido', urgente:'Urgente', atencao:'Atenção', ok:'Em dia', indeterminado:'Verificar', 'sem-data':'Sem data' }
+
+  const filtrados = REGISTROS.filter(r => {
+    if (fstatus && r.status !== fstatus) return false
+    if (ftipo   && r.tipo_doc !== ftipo)  return false
+    if (busca && !(
+      r.numero_processo.toLowerCase().includes(busca) ||
+      r.tipo_doc.toLowerCase().includes(busca) ||
+      r.tribunal.toLowerCase().includes(busca)
+    )) return false
+    return true
+  })
+
+  document.getElementById('contagem').textContent = `${filtrados.length} registro(s) exibido(s).`
+
+  const tbody = document.getElementById('tbody')
+  if (!filtrados.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="vazio">Nenhuma publicação encontrada.</td></tr>'
+    return
+  }
+
+  tbody.innerHTML = filtrados.map(r => {
+    const diasTxt = r.dias_restantes === null ? '—'
+      : r.dias_restantes < 0
+        ? `<span style="color:var(--red);font-weight:700">Vencido (${Math.abs(r.dias_restantes)}d)</span>`
+        : `${r.dias_restantes} dia(s)`
+    return `<tr>
+      <td>
+        <div class="processo-num">${r.numero_processo}</div>
+        <div class="processo-base">${r.base_legal}</div>
+      </td>
+      <td>${r.tipo_doc}</td>
+      <td>${r.tribunal}</td>
+      <td>${r.data_intimacao}</td>
+      <td>${r.data_fim_prazo}</td>
+      <td>${diasTxt}</td>
+      <td><span class="badge badge-${r.status}">${LABELS[r.status] || r.status}</span></td>
+    </tr>`
+  }).join('')
+}
+
+// ---------------------------------------------------------------------------
+// Calendário
+// ---------------------------------------------------------------------------
+window.navMes = function(delta) {
+  calMes += delta
+  if (calMes < 0)  { calMes = 11; calAno-- }
+  if (calMes > 11) { calMes = 0;  calAno++ }
+  renderCalendario()
+}
+
+function renderCalendario() {
+  document.getElementById('cal-mes-label').textContent = `${MESES[calMes]} ${calAno}`
+  const hoje = new Date(); hoje.setHours(0,0,0,0)
+  const primeiro = new Date(calAno, calMes, 1)
+  const ultDia   = new Date(calAno, calMes + 1, 0).getDate()
+  const iniciaDia = primeiro.getDay()
+
+  const porDia = {}
+  REGISTROS.forEach(r => {
+    if (!r.data_fim_iso) return
+    const [a, m] = r.data_fim_iso.split('-').map(Number)
+    if (a === calAno && m - 1 === calMes) {
+      const d = parseInt(r.data_fim_iso.split('-')[2])
+      if (!porDia[d]) porDia[d] = []
+      porDia[d].push(r)
+    }
+  })
+
+  let html = ''
+  for (let i = 0; i < iniciaDia; i++) {
+    const d = new Date(calAno, calMes, -iniciaDia + i + 1)
+    html += `<div class="cal-dia outro-mes"><div class="cal-num">${d.getDate()}</div></div>`
+  }
+  for (let dia = 1; dia <= ultDia; dia++) {
+    const ehHoje = new Date(calAno, calMes, dia).getTime() === hoje.getTime()
+    const items  = (porDia[dia] || []).slice(0, 3)
+    const mais   = (porDia[dia] || []).length - 3
+    const dots   = items.map(r =>
+      `<div class="cal-item ${r.status}" title="${r.numero_processo}">${r.tipo_doc}</div>`
+    ).join('') + (mais > 0 ? `<div class="cal-item" style="color:var(--muted)">+${mais} mais</div>` : '')
+    html += `<div class="cal-dia${ehHoje ? ' hoje' : ''}"><div class="cal-num">${dia}</div>${dots}</div>`
+  }
+  const restante = (7 - (iniciaDia + ultDia) % 7) % 7
+  for (let i = 1; i <= restante; i++) {
+    html += `<div class="cal-dia outro-mes"><div class="cal-num">${i}</div></div>`
+  }
+  document.getElementById('cal-body').innerHTML = html
+}
+
+// ---------------------------------------------------------------------------
+// Relatório diário
+// ---------------------------------------------------------------------------
+function renderRelatorio() {
+  const hoje = new Date()
+  const diasSemana = ['domingo','segunda-feira','terça-feira','quarta-feira',
+                      'quinta-feira','sexta-feira','sábado']
+  document.getElementById('rel-data').textContent =
+    `${hoje.toLocaleDateString('pt-BR')} · ${diasSemana[hoje.getDay()]}`
+
+  const urgentes  = REGISTROS.filter(r => r.status === 'urgente' || r.status === 'vencido')
+  const atencao   = REGISTROS.filter(r => r.status === 'atencao')
+  const ok        = REGISTROS.filter(r => r.status === 'ok')
+  const indets    = REGISTROS.filter(r => r.status === 'indeterminado')
+
+  function blocoItems(lista) {
+    return lista.map(r => {
+      const diasTxt = r.dias_restantes !== null && r.dias_restantes >= 0
+        ? `${r.dias_restantes} dia(s) útil(eis) · `
+        : r.dias_restantes < 0 ? 'VENCIDO · ' : ''
+      return `<div class="bloco-item">
+        <p>${r.numero_processo}</p>
+        <small>${r.tipo_doc} · Vence ${r.data_fim_prazo} · ${diasTxt}${r.base_legal}</small>
+      </div>`
+    }).join('')
+  }
+
+  let html = ''
+
+  if (urgentes.length) html += `
+    <div class="bloco bloco-urgente">
+      <div class="bloco-titulo">⚠ Urgente / Vencido — ${urgentes.length} processo(s)</div>
+      ${blocoItems(urgentes)}
+    </div>`
+
+  if (atencao.length) html += `
+    <div class="bloco bloco-atencao">
+      <div class="bloco-titulo">🕐 Atenção — ${atencao.length} processo(s)</div>
+      ${blocoItems(atencao)}
+    </div>`
+
+  if (ok.length) html += `
+    <div class="bloco bloco-ok">
+      <div class="bloco-titulo" style="color:var(--green)">✓ Em dia — ${ok.length} processo(s)</div>
+      <p style="font-size:12px;color:var(--muted)">Nenhuma ação imediata necessária.</p>
+    </div>`
+
+  if (indets.length) html += `
+    <div class="bloco bloco-indet">
+      <div class="bloco-titulo">⚡ Verificar manualmente — ${indets.length} processo(s)</div>
+      ${blocoItems(indets)}
+    </div>`
+
+  html += `
+    <div class="rel-resumo">
+      <div><div class="rel-resumo-num" style="color:var(--red)">${urgentes.length}</div><div class="rel-resumo-lbl">Urgente/venc.</div></div>
+      <div><div class="rel-resumo-num" style="color:var(--amber)">${atencao.length}</div><div class="rel-resumo-lbl">Atenção</div></div>
+      <div><div class="rel-resumo-num" style="color:var(--green)">${ok.length}</div><div class="rel-resumo-lbl">Em dia</div></div>
+      <div><div class="rel-resumo-num" style="color:var(--gray)">${indets.length}</div><div class="rel-resumo-lbl">Verificar</div></div>
+    </div>
+    <p class="rel-footer">Prazos calculados conforme arts. 219, 224 e 231-I do CPC · Feriados nacionais incluídos · Verifique recessos tribunalícios (art. 220 CPC) manualmente.</p>`
+
+  document.getElementById('rel-conteudo').innerHTML = html || '<p style="color:var(--muted);font-size:13px">Nenhum prazo carregado ainda.</p>'
+}
+
+// ---------------------------------------------------------------------------
+// OABs monitoradas
+// ---------------------------------------------------------------------------
+async function carregarOABs() {
+  const { data, error } = await sb
+    .from('oabs_monitoradas')
+    .select('numero_oab, uf_oab, ativo')
+    .order('uf_oab')
+
+  const el = document.getElementById('oab-list')
+  if (error || !data) {
+    el.innerHTML = `<p style="color:var(--muted);font-size:13px">Erro ao carregar OABs: ${error?.message}</p>`
+    return
+  }
+  if (!data.length) {
+    el.innerHTML = `<p style="color:var(--muted);font-size:13px">Nenhuma OAB cadastrada. Elas são importadas automaticamente pelo script Python.</p>`
+    return
+  }
+  el.innerHTML = data.map(o => `
+    <div class="oab-item">
+      <div>
+        <div class="oab-num">OAB ${o.numero_oab}/${o.uf_oab}</div>
+        <div class="oab-uf">Estado: ${o.uf_oab}</div>
+      </div>
+      <span class="${o.ativo ? 'badge-ativo' : 'badge-inativo'}">${o.ativo ? 'Ativo' : 'Inativo'}</span>
+    </div>`).join('')
+}
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+;(async function boot() {
+  const url  = localStorage.getItem('sb_url')
+  const anon = localStorage.getItem('sb_anon')
+
+  if (url && anon) {
+    iniciarCliente(url, anon)
+    document.getElementById('cfg-url').value  = url
+    document.getElementById('cfg-anon').value = anon
+
+    const { data: { session } } = await sb.auth.getSession()
+    if (session) {
+      entrarNoApp(session.user)
+      return
+    }
+    mostrar('screen-login')
+  } else {
+    mostrar('screen-config')
+  }
+})()
+</script>
+</body>
+</html>

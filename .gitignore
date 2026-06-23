@@ -18,3 +18,10 @@ __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+
+# Logs (podem conter metadados de processos)
+captura.log
+
+# Arquivos HTML gerados localmente
+painel_gerado.html
+relatorio_diario.html
