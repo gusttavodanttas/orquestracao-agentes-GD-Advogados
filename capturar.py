@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 import requests
 from bs4 import BeautifulSoup
 
-from prazos_cpc import calcular_prazo
+from prazos_cpc import calcular_prazo, eh_dia_util
 
 # ---------------------------------------------------------------------------
 # Variáveis de ambiente (.env)
@@ -45,7 +45,9 @@ MAX_TENTATIVAS = 5
 
 ARQUIVO_OABS = Path("oabs.json")
 ARQUIVO_VISTOS = Path("vistos.json")
-ARQUIVO_SAIDA = Path("publicacoes.json")
+ARQUIVO_SAIDA  = Path("publicacoes.json")
+LOG_AUDITORIA  = Path("captura.log")
+DIAS_URGENTE   = 3   # prazo em ≤ 3 dias úteis = urgente
 
 # ---------------------------------------------------------------------------
 # Logging — sem dados de partes (LGPD)
@@ -56,6 +58,13 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 log = logging.getLogger(__name__)
+
+# Grava também em arquivo — para conferir no dia seguinte
+_fh = logging.FileHandler(LOG_AUDITORIA, encoding="utf-8-sig")
+_fh.setFormatter(logging.Formatter(
+    "%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+))
+log.addHandler(_fh)
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +95,19 @@ def carregar_json(caminho: Path, padrao):
 def salvar_json(caminho: Path, dados) -> None:
     with caminho.open("w", encoding="utf-8") as arq:
         json.dump(dados, arq, ensure_ascii=False, indent=2)
+
+
+def _dias_uteis_restantes(data_fim: date) -> int:
+    """Dias úteis de hoje até data_fim inclusive. Retorna -1 se já venceu."""
+    hoje = date.today()
+    if data_fim < hoje:
+        return -1
+    contados, d = 0, hoje
+    while d <= data_fim:
+        if eh_dia_util(d):
+            contados += 1
+        d += timedelta(days=1)
+    return contados
 
 
 def _normalizar_data(bruto: dict) -> str | None:
@@ -247,8 +269,13 @@ def upsert_publicacao(sessao: requests.Session, pub: dict) -> str | None:
     return dados[0]["id"] if dados else None
 
 
-def upsert_prazo(sessao: requests.Session, pub: dict, publicacao_id: str) -> None:
-    """Calcula prazo conforme CPC e grava na tabela prazos."""
+def upsert_prazo(
+    sessao: requests.Session,
+    pub: dict,
+    publicacao_id: str,
+    prazo_calculado: dict | None = None,
+) -> None:
+    """Grava prazo no Supabase. Reutiliza prazo_calculado se já disponível."""
     bruto = pub["dados_brutos"]
     data_disp_str = _normalizar_data(bruto)
 
@@ -266,7 +293,7 @@ def upsert_prazo(sessao: requests.Session, pub: dict, publicacao_id: str) -> Non
         return
 
     tipo_doc = bruto.get("tipoDocumento")
-    prazo = calcular_prazo(data_disp, tipo_doc)
+    prazo = prazo_calculado or calcular_prazo(data_disp, tipo_doc)
 
     numero_processo = (
         bruto.get("numero_processo")
@@ -347,6 +374,7 @@ def main(dias: int = 15) -> None:
     })
 
     total_novas = 0
+    urgentes: list[dict] = []
 
     for entrada in oabs:
         numero_oab = str(entrada.get("numero", "")).strip()
@@ -392,11 +420,35 @@ def main(dias: int = 15) -> None:
                 "capturado_em": datetime.now().isoformat(timespec="seconds"),
             }
 
+            # Calcular prazo localmente (urgência + Supabase)
+            prazo_info: dict | None = None
+            data_disp_str = _normalizar_data(item)
+            if data_disp_str:
+                try:
+                    prazo_info = calcular_prazo(
+                        date.fromisoformat(data_disp_str),
+                        item.get("tipoDocumento"),
+                    )
+                except ValueError:
+                    pass
+
+            if prazo_info and prazo_info["data_fim_prazo"]:
+                dias = _dias_uteis_restantes(prazo_info["data_fim_prazo"])
+                if dias <= DIAS_URGENTE:
+                    urgentes.append({
+                        "processo": (
+                            item.get("numero_processo")
+                            or item.get("numeroprocessocommascara", "?")
+                        ),
+                        "vence": prazo_info["data_fim_prazo"],
+                        "dias": dias,
+                    })
+
             # Gravar no Supabase (publicação + prazo)
             if _SUPABASE_CONFIGURADO:
                 pub_id = upsert_publicacao(sessao, registro)
                 if pub_id:
-                    upsert_prazo(sessao, registro, pub_id)
+                    upsert_prazo(sessao, registro, pub_id, prazo_calculado=prazo_info)
 
             por_id[chave] = registro
             vistos.add(chave)
@@ -411,9 +463,19 @@ def main(dias: int = 15) -> None:
 
         time.sleep(INTERVALO_REQ_SEG)
 
+    # Resumo no log de auditoria
+    if urgentes:
+        log.warning(
+            "URGENTE: %d prazo(s) vencendo em até %d dias úteis:",
+            len(urgentes), DIAS_URGENTE,
+        )
+        for u in urgentes:
+            rotulo = "VENCIDO" if u["dias"] < 0 else f"{u['dias']} dia(s) útil(eis) restante(s)"
+            log.warning("  → processo %s | vence %s | %s", u["processo"], u["vence"], rotulo)
+
     log.info(
-        "Concluído. Novas: %d. Total em '%s': %d.",
-        total_novas, ARQUIVO_SAIDA, len(por_id),
+        "RESUMO: novas=%d | urgentes=%d | total acumulado=%d",
+        total_novas, len(urgentes), len(por_id),
     )
 
 
