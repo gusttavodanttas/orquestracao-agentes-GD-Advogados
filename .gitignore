@@ -1,0 +1,17 @@
+# Arquivos gerados em tempo de execução — contêm dados sensíveis (LGPD)
+publicacoes.json
+vistos.json
+
+# Sua lista real de OABs (não versionar — use oabs.exemplo.json como modelo)
+oabs.json
+
+# Ambiente virtual Python
+venv/
+.venv/
+env/
+
+# Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
