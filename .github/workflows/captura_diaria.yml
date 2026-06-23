@@ -1,0 +1,33 @@
+name: Captura DJEN diária
+
+on:
+  schedule:
+    - cron: '0 10 * * 1-5'   # 07h00 Brasília (UTC-3), segunda a sexta
+  workflow_dispatch:           # permite rodar manualmente com 1 clique
+
+jobs:
+  capturar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Criar oabs.json a partir do secret
+        run: echo '${{ secrets.OABS_JSON }}' > oabs.json
+
+      - name: Capturar publicações
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ESCRITORIO_ID: ${{ secrets.ESCRITORIO_ID }}
+          CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+          CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+        run: python capturar.py --dias 2

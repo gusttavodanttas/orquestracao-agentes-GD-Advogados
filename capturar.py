@@ -417,6 +417,46 @@ def upsert_prazo(
 
 
 # ---------------------------------------------------------------------------
+# Notificação WhatsApp via CallMeBot (gratuito — callmebot.com)
+# ---------------------------------------------------------------------------
+
+def notificar_whatsapp(urgentes: list[dict], total_novas: int) -> None:
+    """Envia resumo via CallMeBot se houver urgências ou novas publicações."""
+    phone  = os.getenv("CALLMEBOT_PHONE", "").strip()
+    apikey = os.getenv("CALLMEBOT_APIKEY", "").strip()
+    if not phone or not apikey:
+        return
+    if not urgentes and total_novas == 0:
+        return
+
+    hoje = date.today().strftime("%d/%m/%Y")
+    linhas = [f"⚖️ GD Advogados — {hoje}"]
+
+    if urgentes:
+        linhas.append(f"\n🚨 {len(urgentes)} prazo(s) urgente(s):")
+        for u in urgentes[:5]:
+            rotulo = "VENCIDO" if u["dias"] < 0 else f"{u['dias']}d úteis"
+            linhas.append(f"• {u['processo']} → {rotulo}")
+        if len(urgentes) > 5:
+            linhas.append(f"  ...e mais {len(urgentes) - 5}")
+
+    linhas.append(f"\n📥 {total_novas} nova(s) publicação(ões) capturada(s).")
+
+    try:
+        resp = requests.get(
+            "https://api.callmebot.com/whatsapp.php",
+            params={"phone": phone, "text": "\n".join(linhas), "apikey": apikey},
+            timeout=15,
+        )
+        if resp.ok:
+            log.info("WhatsApp enviado via CallMeBot.")
+        else:
+            log.warning("CallMeBot: resposta inesperada — %s", resp.status_code)
+    except requests.RequestException as exc:
+        log.warning("Falha ao enviar WhatsApp: %s", exc)
+
+
+# ---------------------------------------------------------------------------
 # Fluxo principal
 # ---------------------------------------------------------------------------
 
@@ -559,6 +599,8 @@ def main(dias: int = 15) -> None:
         "RESUMO: novas=%d | urgentes=%d | total acumulado=%d",
         total_novas, len(urgentes), len(por_id),
     )
+
+    notificar_whatsapp(urgentes, total_novas)
 
 
 # ---------------------------------------------------------------------------
