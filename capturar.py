@@ -468,12 +468,19 @@ def main(dias: int = 15) -> None:
             "Executando apenas com arquivo local (publicacoes.json)."
         )
 
-    oabs = carregar_json(ARQUIVO_OABS, [])
+    env_oabs = os.getenv("OABS_JSON", "").strip()
+    if env_oabs:
+        try:
+            oabs = json.loads(env_oabs)
+        except json.JSONDecodeError:
+            log.error("Variável OABS_JSON com JSON inválido — verifique o formato.")
+            sys.exit(1)
+    else:
+        oabs = carregar_json(ARQUIVO_OABS, [])
     if not oabs:
         log.error(
-            "Arquivo '%s' não encontrado ou vazio. "
-            "Crie-o com o formato: [{\"numero\": \"12345\", \"uf\": \"SP\"}, ...]",
-            ARQUIVO_OABS,
+            "OABs não encontradas. Crie oabs.json ou defina a variável OABS_JSON. "
+            "Formato: [{\"numero\": \"12345\", \"uf\": \"SP\"}, ...]",
         )
         sys.exit(1)
 

@@ -1,0 +1,6 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "python capturar.py --dias 2"
+cronSchedule = "0 10 * * 1-5"
