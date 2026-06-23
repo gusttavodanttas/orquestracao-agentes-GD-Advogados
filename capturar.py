@@ -417,43 +417,43 @@ def upsert_prazo(
 
 
 # ---------------------------------------------------------------------------
-# Notificação WhatsApp via CallMeBot (gratuito — callmebot.com)
+# Notificação via Telegram Bot (API oficial, gratuita)
 # ---------------------------------------------------------------------------
 
-def notificar_whatsapp(urgentes: list[dict], total_novas: int) -> None:
-    """Envia resumo via CallMeBot se houver urgências ou novas publicações."""
-    phone  = os.getenv("CALLMEBOT_PHONE", "").strip()
-    apikey = os.getenv("CALLMEBOT_APIKEY", "").strip()
-    if not phone or not apikey:
+def notificar_telegram(urgentes: list[dict], total_novas: int) -> None:
+    """Envia resumo no Telegram se houver urgências ou novas publicações."""
+    token   = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    if not token or not chat_id:
         return
     if not urgentes and total_novas == 0:
         return
 
     hoje = date.today().strftime("%d/%m/%Y")
-    linhas = [f"⚖️ GD Advogados — {hoje}"]
+    linhas = [f"⚖️ *GD Advogados — {hoje}*"]
 
     if urgentes:
-        linhas.append(f"\n🚨 {len(urgentes)} prazo(s) urgente(s):")
+        linhas.append(f"\n🚨 *{len(urgentes)} prazo(s) urgente(s):*")
         for u in urgentes[:5]:
-            rotulo = "VENCIDO" if u["dias"] < 0 else f"{u['dias']}d úteis"
-            linhas.append(f"• {u['processo']} → {rotulo}")
+            rotulo = "VENCIDO ❌" if u["dias"] < 0 else f"{u['dias']}d úteis ⚠️"
+            linhas.append(f"• `{u['processo']}` → {rotulo}")
         if len(urgentes) > 5:
-            linhas.append(f"  ...e mais {len(urgentes) - 5}")
+            linhas.append(f"  _...e mais {len(urgentes) - 5}_")
 
     linhas.append(f"\n📥 {total_novas} nova(s) publicação(ões) capturada(s).")
 
     try:
-        resp = requests.get(
-            "https://api.callmebot.com/whatsapp.php",
-            params={"phone": phone, "text": "\n".join(linhas), "apikey": apikey},
+        resp = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": "\n".join(linhas), "parse_mode": "Markdown"},
             timeout=15,
         )
         if resp.ok:
-            log.info("WhatsApp enviado via CallMeBot.")
+            log.info("Notificação enviada via Telegram.")
         else:
-            log.warning("CallMeBot: resposta inesperada — %s", resp.status_code)
+            log.warning("Telegram: resposta inesperada — %s %s", resp.status_code, resp.text)
     except requests.RequestException as exc:
-        log.warning("Falha ao enviar WhatsApp: %s", exc)
+        log.warning("Falha ao enviar Telegram: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -600,7 +600,7 @@ def main(dias: int = 15) -> None:
         total_novas, len(urgentes), len(por_id),
     )
 
-    notificar_whatsapp(urgentes, total_novas)
+    notificar_telegram(urgentes, total_novas)
 
 
 # ---------------------------------------------------------------------------
