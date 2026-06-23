@@ -669,16 +669,16 @@ function renderDJEN(){
     if(busca&&!p.numero_processo.toLowerCase().includes(busca))return false
     return true
   })
-  const tbody=document.getElementById('tbody-djen')
-  tbody.innerHTML=fil.length?fil.map(p=>{
-    const pubId = p.publicacoes?.id || p.publicacao_id || ''
-    return `<tr class="clickable" onclick="abrirPub('${pubId}', ${JSON.stringify(p).replace(/'/g,"&#39;")})">
-      <td><div class="mono">${p.numero_processo}</div><div style="font-size:11px;color:var(--muted)">${p.base_legal||''}</div></td>
-      <td>${p.tipo_doc}</td><td>${p.tribunal}</td>
-      <td>${p.data_intimacao_fmt}</td><td>${p.data_fim_fmt}</td>
-      <td>${p.dias_restantes===null?'—':p.dias_restantes<0?`<span style="color:var(--red);font-weight:700">Vencido</span>`:`${p.dias_restantes}d`}</td>
-      <td><span class="badge ${statusBadge(p.status)}">${statusLabel(p.status)}</span> <span style="font-size:11px;color:var(--muted)">↗</span></td>
-    </tr>`}).join(''):'<tr><td colspan="7" class="empty">Nenhum resultado.</td></tr>'
+  window._djFil = fil
+  const tbody = document.getElementById('tbody-djen')
+  if(!fil.length){tbody.innerHTML='<tr><td colspan="7" class="empty">Nenhum resultado.</td></tr>';return}
+  tbody.innerHTML = fil.map((p,i)=>`<tr class="clickable" onclick="abrirPubIdx(${i})">
+    <td><div class="mono">${p.numero_processo}</div><div style="font-size:11px;color:var(--muted)">${p.base_legal||''}</div></td>
+    <td>${p.tipo_doc}</td><td>${p.tribunal}</td>
+    <td>${p.data_intimacao_fmt}</td><td>${p.data_fim_fmt}</td>
+    <td>${p.dias_restantes===null?'—':p.dias_restantes<0?'<span style="color:var(--red);font-weight:700">Vencido</span>':`${p.dias_restantes}d`}</td>
+    <td><span class="badge ${statusBadge(p.status)}">${statusLabel(p.status)}</span> <span style="font-size:11px;color:var(--hint)">↗</span></td>
+  </tr>`).join('')
 }
 
 // --- CALENDÁRIO ---
@@ -800,6 +800,13 @@ function renderAgentes(){
 
 // --- DETALHE PUBLICAÇÃO ---
 let _pubAtual = null
+
+window.abrirPubIdx = function(i) {
+  const p = (window._djFil || [])[i]
+  if (!p) return
+  const pubId = p.publicacao_id || p.publicacoes?.id || ''
+  abrirPub(pubId, p)
+}
 
 window.abrirPub = async function(publicacaoId, prazo) {
   _pubAtual = { publicacaoId, prazo }
