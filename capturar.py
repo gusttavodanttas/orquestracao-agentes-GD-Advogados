@@ -48,6 +48,7 @@ ARQUIVO_VISTOS = Path("vistos.json")
 ARQUIVO_SAIDA  = Path("publicacoes.json")
 LOG_AUDITORIA  = Path("captura.log")
 DIAS_URGENTE   = 3   # prazo em ≤ 3 dias úteis = urgente
+DIAS_ATENCAO   = 7   # prazo em ≤ 7 dias úteis = atenção
 
 # ---------------------------------------------------------------------------
 # Logging — sem dados de partes (LGPD)
@@ -269,6 +270,83 @@ def upsert_publicacao(sessao: requests.Session, pub: dict) -> str | None:
     return dados[0]["id"] if dados else None
 
 
+def criar_tarefa_despacho(
+    sessao: requests.Session,
+    pub: dict,
+    publicacao_id: str,
+    prazo_info: dict,
+    dias_restantes: int,
+) -> None:
+    """Cria tarefa na Central de Despacho para prazos urgentes ou de atenção."""
+    bruto = pub["dados_brutos"]
+    numero_processo = (
+        bruto.get("numero_processo")
+        or bruto.get("numeroprocessocommascara")
+        or "não informado"
+    )
+    tipo_doc = bruto.get("tipoDocumento") or "Não identificado"
+    vence = prazo_info["data_fim_prazo"]
+
+    if dias_restantes < 0:
+        prioridade = "alta"
+        titulo = f"VENCIDO — {tipo_doc} · {numero_processo}"
+    elif dias_restantes <= DIAS_URGENTE:
+        prioridade = "alta"
+        titulo = f"Prazo urgente ({dias_restantes}d) — {tipo_doc} · {numero_processo}"
+    else:
+        prioridade = "media"
+        titulo = f"Prazo em {dias_restantes} dias — {tipo_doc} · {numero_processo}"
+
+    # Busca o agente Monitor DJEN
+    agente_resp = sessao.get(
+        f"{SUPABASE_URL}/rest/v1/agentes",
+        params={"nome": "eq.Monitor DJEN", "escritorio_id": f"eq.{ESCRITORIO_ID}"},
+        headers=_sb_headers({"Accept": "application/json"}),
+        timeout=10,
+    )
+    agente_id = None
+    if agente_resp.ok and agente_resp.json():
+        agente_id = agente_resp.json()[0]["id"]
+
+    # Gera docket via RPC
+    dk_resp = sessao.post(
+        f"{SUPABASE_URL}/rest/v1/rpc/proximo_docket",
+        json={"p_escritorio_id": ESCRITORIO_ID},
+        headers=_sb_headers(),
+        timeout=10,
+    )
+    docket = dk_resp.json() if dk_resp.ok else "GD-AUTO"
+
+    payload = {
+        "escritorio_id": ESCRITORIO_ID,
+        "agente_id": agente_id,
+        "docket": docket,
+        "tipo": "prazo_judicial",
+        "titulo": titulo,
+        "prioridade": prioridade,
+        "numero_processo": numero_processo,
+        "publicacao_id": publicacao_id,
+        "conteudo": {
+            "tipo_documento": tipo_doc,
+            "data_fim_prazo": vence.isoformat() if vence else None,
+            "dias_restantes": dias_restantes,
+            "base_legal": prazo_info.get("base_legal", ""),
+        },
+    }
+
+    url = f"{SUPABASE_URL}/rest/v1/tarefas?on_conflict=publicacao_id"
+    resp = sessao.post(
+        url,
+        json=payload,
+        headers=_sb_headers({"Prefer": "resolution=ignore,return=minimal"}),
+        timeout=15,
+    )
+    if resp.ok:
+        log.info("Tarefa criada na Central de Despacho: %s | %s", docket, titulo)
+    else:
+        log.error("Erro ao criar tarefa no despacho: %s", resp.text)
+
+
 def upsert_prazo(
     sessao: requests.Session,
     pub: dict,
@@ -432,23 +510,27 @@ def main(dias: int = 15) -> None:
                 except ValueError:
                     pass
 
+            dias_restantes: int | None = None
             if prazo_info and prazo_info["data_fim_prazo"]:
-                dias = _dias_uteis_restantes(prazo_info["data_fim_prazo"])
-                if dias <= DIAS_URGENTE:
+                dias_restantes = _dias_uteis_restantes(prazo_info["data_fim_prazo"])
+                if dias_restantes <= DIAS_URGENTE:
                     urgentes.append({
                         "processo": (
                             item.get("numero_processo")
                             or item.get("numeroprocessocommascara", "?")
                         ),
                         "vence": prazo_info["data_fim_prazo"],
-                        "dias": dias,
+                        "dias": dias_restantes,
                     })
 
-            # Gravar no Supabase (publicação + prazo)
+            # Gravar no Supabase (publicação + prazo + tarefa na Central de Despacho)
             if _SUPABASE_CONFIGURADO:
                 pub_id = upsert_publicacao(sessao, registro)
                 if pub_id:
                     upsert_prazo(sessao, registro, pub_id, prazo_calculado=prazo_info)
+                    # Cria tarefa no despacho para prazos urgentes e de atenção
+                    if prazo_info and dias_restantes is not None and dias_restantes <= DIAS_ATENCAO:
+                        criar_tarefa_despacho(sessao, registro, pub_id, prazo_info, dias_restantes)
 
             por_id[chave] = registro
             vistos.add(chave)

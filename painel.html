@@ -3,724 +3,859 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GD Advogados — Painel de Publicações</title>
+<title>GD Advogados — Plataforma</title>
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --bg: #f5f5f4; --surface: #ffffff; --border: #e4e2db;
-  --text: #1c1c1b; --muted: #888780; --accent: #185fa5;
-  --red-bg: #fcebeb; --red: #a32d2d; --red-dark: #791f1f;
-  --amber-bg: #faeeda; --amber: #854f0b;
-  --green-bg: #eaf3de; --green: #3b6d11;
-  --gray-bg: #f1efe8; --gray: #5f5e5a;
-  --radius: 10px; --radius-sm: 6px;
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f5f4;--surface:#fff;--border:#e4e2db;--border2:#d3d1c7;
+  --text:#1c1c1b;--muted:#888780;--hint:#b4b2a9;
+  --blue:#185fa5;--blue-bg:#e6f1fb;
+  --red:#a32d2d;--red-bg:#fcebeb;--red2:#791f1f;
+  --amber:#854f0b;--amber-bg:#faeeda;
+  --green:#3b6d11;--green-bg:#eaf3de;
+  --purple:#534ab7;--purple-bg:#eeedfe;
+  --gray:#5f5e5a;--gray-bg:#f1efe8;
+  --r:10px;--rs:6px;
 }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
-
-/* --- TELAS DE CONFIG / LOGIN --- */
-.screen { display: none; min-height: 100vh; align-items: center; justify-content: center; padding: 24px; }
-.screen.active { display: flex; }
-.card-auth { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; width: 100%; max-width: 400px; }
-.card-auth h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
-.card-auth p { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
-.field { margin-bottom: 16px; }
-.field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
-.field input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--surface); color: var(--text); outline: none; transition: border-color .15s; }
-.field input:focus { border-color: var(--accent); }
-.field small { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
-.btn-primary { width: 100%; padding: 10px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
-.btn-primary:hover { opacity: .88; }
-.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
-.btn-link { background: none; border: none; color: var(--accent); font-size: 12px; cursor: pointer; padding: 0; text-decoration: underline; }
-.msg-erro { background: var(--red-bg); color: var(--red); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; margin-bottom: 16px; display: none; }
-
-/* --- APP PRINCIPAL --- */
-#app { display: none; min-height: 100vh; }
-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 20; }
-.logo { font-size: 15px; font-weight: 700; }
-.logo span { font-weight: 400; color: var(--muted); }
-nav { display: flex; gap: 4px; }
-nav button { padding: 6px 14px; border: none; background: none; font-size: 13px; color: var(--muted); border-radius: var(--radius-sm); cursor: pointer; transition: background .1s, color .1s; }
-nav button.active { background: var(--bg); color: var(--text); font-weight: 600; }
-nav button:hover:not(.active) { background: var(--bg); }
-.header-right { display: flex; align-items: center; gap: 12px; }
-.header-right span { font-size: 12px; color: var(--muted); }
-.btn-sm { padding: 6px 12px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-sm); font-size: 12px; cursor: pointer; color: var(--text); transition: background .1s; }
-.btn-sm:hover { background: var(--bg); }
-main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
-
-/* --- TABS --- */
-.tab { display: none; }
-.tab.active { display: block; }
-
-/* --- MÉTRICAS --- */
-.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
-.metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
-.metric-num { font-size: 30px; font-weight: 700; line-height: 1; margin-bottom: 3px; }
-.metric-lbl { font-size: 12px; color: var(--muted); }
-.metric.urgente { background: var(--red-bg); border-color: #f09595; }
-.metric.urgente .metric-num { color: var(--red); }
-.metric.atencao { background: var(--amber-bg); border-color: #fac775; }
-.metric.atencao .metric-num { color: var(--amber); }
-
-/* --- FILTROS --- */
-.filtros { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
-.filtros input, .filtros select { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; background: var(--surface); color: var(--text); outline: none; }
-.filtros input:focus, .filtros select:focus { border-color: var(--accent); }
-.filtros input { flex: 1; min-width: 180px; }
-.contagem { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-
-/* --- TABELA --- */
-.tbl-wrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
-table { width: 100%; border-collapse: collapse; }
-thead { background: var(--bg); }
-th { padding: 9px 14px; text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
-td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0eeea; vertical-align: middle; }
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: #fafaf9; }
-.processo-num { font-family: 'Courier New', monospace; font-size: 12px; color: var(--text); }
-.processo-base { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-.badge-vencido { background: #501313; color: #fff; }
-.badge-urgente { background: var(--red-bg); color: var(--red); }
-.badge-atencao { background: var(--amber-bg); color: var(--amber); }
-.badge-ok { background: var(--green-bg); color: var(--green); }
-.badge-indeterminado, .badge-sem-data { background: var(--gray-bg); color: var(--gray); }
-.vazio { padding: 48px; text-align: center; color: var(--muted); font-size: 13px; }
-.loading { padding: 48px; text-align: center; color: var(--muted); font-size: 13px; }
-.spin { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; margin-right: 8px; vertical-align: middle; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* --- CALENDÁRIO --- */
-.cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.cal-nav button { padding: 6px 14px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; }
-.cal-nav button:hover { background: var(--bg); }
-.cal-mes { font-size: 16px; font-weight: 600; }
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.cal-hdr { font-size: 11px; font-weight: 700; text-align: center; color: var(--muted); padding: 4px; text-transform: uppercase; letter-spacing: .04em; }
-.cal-dia { min-height: 72px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px; }
-.cal-dia.outro-mes { opacity: .35; background: var(--bg); }
-.cal-dia.hoje { border-color: var(--accent); border-width: 2px; }
-.cal-num { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
-.cal-dia.hoje .cal-num { color: var(--accent); }
-.cal-item { font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
-.cal-item.urgente { background: var(--red-bg); color: var(--red); }
-.cal-item.vencido { background: #501313; color: #fff; }
-.cal-item.atencao { background: var(--amber-bg); color: var(--amber); }
-.cal-item.ok { background: var(--green-bg); color: var(--green); }
-.cal-legenda { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
-.cal-legenda span { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
-.cal-legenda i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
-
-/* --- RELATÓRIO --- */
-.rel-wrap { max-width: 680px; }
-.rel-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-.rel-titulo { font-size: 18px; font-weight: 700; }
-.rel-subtitulo { font-size: 13px; color: var(--muted); margin-top: 2px; }
-.bloco { border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
-.bloco-titulo { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
-.bloco-item { border-radius: var(--radius-sm); padding: 9px 12px; margin-bottom: 6px; }
-.bloco-item:last-child { margin-bottom: 0; }
-.bloco-item p { font-size: 13px; font-weight: 700; margin-bottom: 2px; font-family: 'Courier New', monospace; }
-.bloco-item small { font-size: 12px; }
-.bloco-urgente { background: var(--red-bg); }
-.bloco-urgente .bloco-titulo { color: var(--red); }
-.bloco-urgente .bloco-item { background: #fff1f0; }
-.bloco-urgente .bloco-item p { color: var(--red-dark); }
-.bloco-urgente .bloco-item small { color: var(--red); }
-.bloco-atencao { background: var(--amber-bg); }
-.bloco-atencao .bloco-titulo { color: var(--amber); }
-.bloco-atencao .bloco-item { background: #fef6e7; }
-.bloco-atencao .bloco-item p { color: #633806; }
-.bloco-atencao .bloco-item small { color: var(--amber); }
-.bloco-ok { border: 1px solid #d3e8b8; }
-.bloco-ok .bloco-titulo { color: var(--green); }
-.bloco-indet { border: 1px solid var(--border); }
-.bloco-indet .bloco-titulo { color: var(--gray); }
-.rel-resumo { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; text-align: center; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); margin-top: 8px; }
-.rel-resumo-num { font-size: 24px; font-weight: 700; line-height: 1; margin-bottom: 3px; }
-.rel-resumo-lbl { font-size: 11px; color: var(--muted); }
-.rel-footer { font-size: 11px; color: #bbb; margin-top: 16px; text-align: center; }
-.btn-imprimir { padding: 8px 18px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-.btn-imprimir:hover { background: var(--bg); }
-@media print { header, nav, .filtros, .metrics, .btn-imprimir, .cal-nav { display: none !important; } .tab { display: block !important; } #tab-relatorio { display: block !important; } main { padding: 0; max-width: 100%; } }
-
-/* --- OABS --- */
-.oab-list { display: flex; flex-direction: column; gap: 8px; max-width: 500px; }
-.oab-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
-.oab-num { font-size: 15px; font-weight: 700; font-family: monospace; }
-.oab-uf { font-size: 12px; color: var(--muted); margin-top: 2px; }
-.badge-ativo { background: var(--green-bg); color: var(--green); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 5px; }
-.badge-inativo { background: var(--gray-bg); color: var(--gray); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 5px; }
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+/* AUTH */
+.screen{display:none;min-height:100vh;align-items:center;justify-content:center;padding:24px}
+.screen.on{display:flex}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:32px;width:100%;max-width:400px}
+.auth-card h1{font-size:18px;font-weight:700;margin-bottom:3px}
+.auth-card p{font-size:13px;color:var(--muted);margin-bottom:22px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.field input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;outline:none;background:var(--surface);color:var(--text);transition:border-color .15s}
+.field input:focus{border-color:var(--blue)}
+.field small{font-size:11px;color:var(--muted);margin-top:3px;display:block}
+.btn-p{width:100%;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:var(--rs);font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s}
+.btn-p:hover{opacity:.88}.btn-p:disabled{opacity:.45;cursor:not-allowed}
+.btn-link{background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;text-decoration:underline;padding:0}
+.err{background:var(--red-bg);color:var(--red);border-radius:var(--rs);padding:8px 12px;font-size:13px;margin-bottom:14px;display:none}
+/* LAYOUT */
+#app{display:none;min-height:100vh;display:none;flex-direction:column}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30;flex-shrink:0}
+.logo{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+.logo-sub{font-weight:400;color:var(--muted)}
+.h-right{display:flex;align-items:center;gap:10px}
+.h-right span{font-size:12px;color:var(--muted)}
+.body{display:flex;flex:1;min-height:0}
+aside{width:200px;background:var(--surface);border-right:1px solid var(--border);padding:16px 0;display:flex;flex-direction:column;gap:2px;flex-shrink:0;overflow-y:auto}
+.nav-section{font-size:10px;font-weight:700;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;padding:12px 16px 4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 16px;font-size:13px;color:var(--muted);cursor:pointer;border-radius:0;transition:background .1s,color .1s;border:none;background:none;width:100%;text-align:left}
+.nav-item .ni{font-size:16px;width:20px;text-align:center}
+.nav-item:hover{background:var(--bg);color:var(--text)}
+.nav-item.active{background:var(--bg);color:var(--text);font-weight:600}
+.nav-badge{margin-left:auto;background:var(--red-bg);color:var(--red);font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center}
+main{flex:1;overflow-y:auto;padding:24px}
+/* TABS */
+.tab{display:none}.tab.on{display:block}
+/* BUTTONS */
+.btn{padding:7px 14px;border:1px solid var(--border);background:var(--surface);border-radius:var(--rs);font-size:13px;cursor:pointer;color:var(--text);transition:background .1s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:var(--bg)}
+.btn-blue{background:var(--blue);color:#fff;border-color:var(--blue)}.btn-blue:hover{opacity:.88;background:var(--blue)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-ok{background:var(--green-bg);color:var(--green);border-color:var(--green)}.btn-ok:hover{background:var(--green-bg)}
+.btn-no{background:var(--red-bg);color:var(--red);border-color:var(--red)}.btn-no:hover{background:var(--red-bg)}
+/* CARDS MÉTRICA */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.metric-n{font-size:32px;font-weight:700;line-height:1;margin-bottom:2px}
+.metric-l{font-size:12px;color:var(--muted)}
+.metric.red{background:var(--red-bg);border-color:#f09595}.metric.red .metric-n{color:var(--red)}
+.metric.amber{background:var(--amber-bg);border-color:#fac775}.metric.amber .metric-n{color:var(--amber)}
+.metric.green .metric-n{color:var(--green)}
+.metric.purple .metric-n{color:var(--purple)}
+/* TABELAS */
+.tbl-wrap{border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:var(--surface)}
+table{width:100%;border-collapse:collapse}
+thead{background:var(--bg)}
+th{padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+td{padding:10px 14px;font-size:13px;border-bottom:1px solid #f0eeea;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafaf9}
+/* BADGES */
+.badge{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;white-space:nowrap}
+.b-red{background:var(--red-bg);color:var(--red)}.b-red2{background:#501313;color:#fff}
+.b-amber{background:var(--amber-bg);color:var(--amber)}
+.b-green{background:var(--green-bg);color:var(--green)}
+.b-blue{background:var(--blue-bg);color:var(--blue)}
+.b-purple{background:var(--purple-bg);color:var(--purple)}
+.b-gray{background:var(--gray-bg);color:var(--gray)}
+/* FILTROS */
+.filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.filters input,.filters select{padding:7px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--surface);color:var(--text);outline:none}
+.filters input:focus,.filters select:focus{border-color:var(--blue)}
+.filters input{flex:1;min-width:180px}
+/* LOADING / VAZIO */
+.spin{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{padding:48px;text-align:center;color:var(--muted);font-size:13px}
+/* SECÇÃO */
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-size:16px;font-weight:600}
+.section-sub{font-size:13px;color:var(--muted);margin-top:2px}
+/* CENTRAL DE DESPACHO */
+.tarefa-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;transition:box-shadow .15s}
+.tarefa-card:hover{border-color:var(--border2)}
+.tarefa-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
+.tarefa-titulo{font-size:14px;font-weight:600}
+.tarefa-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.tarefa-actions{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+/* KANBAN */
+.kanban{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:start}
+.kanban-col{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:12px}
+.kanban-col-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.kanban-count{background:var(--border);color:var(--muted);font-size:10px;padding:1px 6px;border-radius:10px}
+.kanban-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:10px;margin-bottom:8px;font-size:13px;cursor:default}
+.kanban-card:last-child{margin-bottom:0}
+.kanban-card-name{font-weight:600;margin-bottom:2px}
+.kanban-card-sub{font-size:11px;color:var(--muted)}
+/* ORQUESTRADOR LOG */
+.log-item{border-left:3px solid var(--border);padding:8px 14px;margin-bottom:10px}
+.log-item.auto{border-color:var(--green)}
+.log-item.despacho{border-color:var(--amber)}
+.log-item.whatsapp{border-color:var(--blue)}
+.log-evento{font-size:13px;font-weight:600;margin-bottom:2px}
+.log-racional{font-size:12px;color:var(--muted);margin-bottom:4px}
+.log-meta{font-size:11px;color:var(--hint)}
+/* CALENDÁRIO */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-hdr{font-size:11px;font-weight:700;text-align:center;color:var(--muted);padding:4px;text-transform:uppercase;letter-spacing:.04em}
+.cal-dia{min-height:68px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:5px}
+.cal-dia.outro{opacity:.3;background:var(--bg)}
+.cal-dia.hoje{border-color:var(--blue);border-width:2px}
+.cal-num{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:2px}
+.cal-dia.hoje .cal-num{color:var(--blue)}
+.cal-dot{font-size:10px;padding:1px 4px;border-radius:3px;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-dot.red{background:var(--red-bg);color:var(--red)}
+.cal-dot.amber{background:var(--amber-bg);color:var(--amber)}
+.cal-dot.green{background:var(--green-bg);color:var(--green)}
+.cal-dot.red2{background:#501313;color:#fff}
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;padding:20px}
+.modal-bg.on{display:flex}
+.modal{background:var(--surface);border-radius:var(--r);padding:24px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:16px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+/* MISC */
+.mono{font-family:'Courier New',monospace;font-size:12px}
+.divider{border:none;border-top:1px solid var(--border);margin:20px 0}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.recent-list{display:flex;flex-direction:column;gap:8px}
+.recent-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.recent-item-left{flex:1;min-width:0}
+.recent-item-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent-item-sub{font-size:11px;color:var(--muted)}
+/* PRINT */
+@media print{aside,header,.filters,.tarefa-actions,.btn,.modal-bg{display:none!important}.tab{display:block!important}main{padding:0}}
 </style>
 </head>
 <body>
 
-<!-- TELA 1: CONFIGURAÇÃO -->
-<div class="screen active" id="screen-config">
-  <div class="card-auth">
+<!-- CONFIG -->
+<div class="screen on" id="s-config">
+  <div class="auth-card">
     <h1>Configurar conexão</h1>
-    <p>Cole as credenciais do seu projeto Supabase. Você as encontra em <strong>Settings → API</strong> no painel do Supabase.</p>
-    <div id="erro-config" class="msg-erro"></div>
-    <div class="field">
-      <label>URL do projeto</label>
-      <input type="url" id="cfg-url" placeholder="https://xxxx.supabase.co">
-    </div>
-    <div class="field">
-      <label>Chave anon (pública)</label>
-      <input type="text" id="cfg-anon" placeholder="eyJhbGciOiJIUzI1NiIs...">
-      <small>Use a chave <strong>anon public</strong>, não a service_role.</small>
-    </div>
-    <button class="btn-primary" onclick="salvarConfig()">Continuar →</button>
+    <p>Cole as credenciais do projeto Supabase. Encontre em <strong>Settings → API</strong>.</p>
+    <div class="err" id="e-config"></div>
+    <div class="field"><label>URL do projeto</label><input id="c-url" type="url" placeholder="https://xxxx.supabase.co"></div>
+    <div class="field"><label>Chave anon (pública)</label><input id="c-anon" type="text" placeholder="eyJhbGciOiJIUzI1NiIs..."><small>Use a chave <strong>anon public</strong>, não a service_role.</small></div>
+    <button class="btn-p" onclick="salvarConfig()">Continuar →</button>
   </div>
 </div>
 
-<!-- TELA 2: LOGIN -->
-<div class="screen" id="screen-login">
-  <div class="card-auth">
+<!-- LOGIN -->
+<div class="screen" id="s-login">
+  <div class="auth-card">
     <h1>GD Advogados</h1>
-    <p>Painel de publicações judiciais. Faça login com seu e-mail cadastrado no Supabase.</p>
-    <div id="erro-login" class="msg-erro"></div>
-    <div class="field">
-      <label>E-mail</label>
-      <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
-    </div>
-    <div class="field">
-      <label>Senha</label>
-      <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password">
-    </div>
-    <button class="btn-primary" id="btn-login" onclick="fazerLogin()">Entrar</button>
-    <p style="text-align:center; margin-top:14px; font-size:12px; color:var(--muted)">
-      <button class="btn-link" onclick="voltarConfig()">Alterar configuração</button>
-    </p>
+    <p>Plataforma de operações do escritório.</p>
+    <div class="err" id="e-login"></div>
+    <div class="field"><label>E-mail</label><input id="l-email" type="email" autocomplete="email"></div>
+    <div class="field"><label>Senha</label><input id="l-senha" type="password" autocomplete="current-password"></div>
+    <button class="btn-p" id="btn-login" onclick="fazerLogin()">Entrar</button>
+    <p style="text-align:center;margin-top:12px"><button class="btn-link" onclick="mostrar('s-config')">Alterar configuração</button></p>
   </div>
 </div>
 
-<!-- APP PRINCIPAL -->
-<div id="app">
+<!-- APP -->
+<div id="app" style="display:none;flex-direction:column;min-height:100vh">
   <header>
-    <div class="logo">GD Advogados <span>· Publicações</span></div>
-    <nav>
-      <button class="active" onclick="trocarTab('painel', this)">Painel</button>
-      <button onclick="trocarTab('calendario', this)">Calendário</button>
-      <button onclick="trocarTab('relatorio', this)">Relatório</button>
-      <button onclick="trocarTab('oabs', this)">OABs</button>
-    </nav>
-    <div class="header-right">
-      <span id="usuario-email"></span>
-      <button class="btn-sm" onclick="capturarAgora()" title="Buscar novas publicações">↻ Capturar</button>
-      <button class="btn-sm" onclick="fazerLogout()">Sair</button>
+    <div class="logo">⚖️ GD Advogados <span class="logo-sub">· Plataforma</span></div>
+    <div class="h-right">
+      <span id="h-user"></span>
+      <button class="btn btn-sm" onclick="recarregar()">↻ Atualizar</button>
+      <button class="btn btn-sm" onclick="fazerLogout()">Sair</button>
     </div>
   </header>
+  <div class="body">
+    <aside>
+      <div class="nav-section">Visão geral</div>
+      <button class="nav-item active" onclick="nav('dashboard',this)"><span class="ni">📊</span>Dashboard</button>
+      <button class="nav-item" onclick="nav('despacho',this)"><span class="ni">📥</span>Central de Despacho <span class="nav-badge" id="badge-despacho" style="display:none">0</span></button>
+      <div class="nav-section">Judicial</div>
+      <button class="nav-item" onclick="nav('djen',this)"><span class="ni">📰</span>Monitor DJEN</button>
+      <button class="nav-item" onclick="nav('calendario',this)"><span class="ni">📅</span>Calendário</button>
+      <div class="nav-section">CRM</div>
+      <button class="nav-item" onclick="nav('leads',this)"><span class="ni">🎯</span>Leads</button>
+      <button class="nav-item" onclick="nav('clientes',this)"><span class="ni">👥</span>Clientes</button>
+      <button class="nav-item" onclick="nav('processos',this)"><span class="ni">📁</span>Processos</button>
+      <div class="nav-section">Automação</div>
+      <button class="nav-item" onclick="nav('orquestrador',this)"><span class="ni">🧠</span>Orquestrador</button>
+      <button class="nav-item" onclick="nav('agentes',this)"><span class="ni">🤖</span>Agentes</button>
+    </aside>
+    <main id="main-content">
 
-  <main>
-    <!-- TAB: PAINEL -->
-    <div class="tab active" id="tab-painel">
-      <div class="metrics">
-        <div class="metric urgente"><div class="metric-num" id="m-urgente">—</div><div class="metric-lbl">Urgente / vencido</div></div>
-        <div class="metric atencao"><div class="metric-num" id="m-atencao">—</div><div class="metric-lbl">Atenção (4–7 dias)</div></div>
-        <div class="metric"><div class="metric-num" id="m-ok" style="color:var(--green)">—</div><div class="metric-lbl">Em dia</div></div>
-        <div class="metric"><div class="metric-num" id="m-total">—</div><div class="metric-lbl">Total carregado</div></div>
-      </div>
-      <div class="filtros">
-        <input type="text" id="busca" placeholder="Buscar processo, tipo, OAB…" oninput="renderTabela()">
-        <select id="f-status" onchange="renderTabela()">
-          <option value="">Todos os status</option>
-          <option value="vencido">Vencido</option>
-          <option value="urgente">Urgente</option>
-          <option value="atencao">Atenção</option>
-          <option value="ok">Em dia</option>
-          <option value="indeterminado">Indeterminado</option>
-        </select>
-        <select id="f-tipo" onchange="renderTabela()">
-          <option value="">Todos os tipos</option>
-          <option value="Sentença">Sentença</option>
-          <option value="Acórdão">Acórdão</option>
-          <option value="Decisão">Decisão</option>
-          <option value="Despacho">Despacho</option>
-          <option value="Edital">Edital</option>
-        </select>
-      </div>
-      <p class="contagem" id="contagem"></p>
-      <div class="tbl-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Processo</th>
-              <th>Tipo</th>
-              <th>Tribunal</th>
-              <th>Intimação</th>
-              <th>Vence em</th>
-              <th>Dias úteis</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="tbody">
-            <tr><td colspan="7" class="loading"><span class="spin"></span>Carregando publicações…</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p style="font-size:11px;color:var(--muted);margin-top:12px;text-align:center">
-        Prazos calculados conforme arts. 219, 224 e 231-I do CPC · Feriados nacionais incluídos · Verifique recessos tribunalícios manualmente
-      </p>
-    </div>
-
-    <!-- TAB: CALENDÁRIO -->
-    <div class="tab" id="tab-calendario">
-      <div class="cal-nav">
-        <button onclick="navMes(-1)">← anterior</button>
-        <span class="cal-mes" id="cal-mes-label"></span>
-        <button onclick="navMes(1)">próximo →</button>
-      </div>
-      <div class="cal-grid">
-        <div class="cal-hdr">Dom</div><div class="cal-hdr">Seg</div><div class="cal-hdr">Ter</div>
-        <div class="cal-hdr">Qua</div><div class="cal-hdr">Qui</div><div class="cal-hdr">Sex</div><div class="cal-hdr">Sáb</div>
-      </div>
-      <div class="cal-grid" id="cal-body" style="margin-top:4px"></div>
-      <div class="cal-legenda">
-        <span><i style="background:#E24B4A"></i> Urgente</span>
-        <span><i style="background:#EF9F27"></i> Atenção</span>
-        <span><i style="background:#639922"></i> Em dia</span>
-        <span><i style="background:#501313"></i> Vencido</span>
-      </div>
-    </div>
-
-    <!-- TAB: RELATÓRIO -->
-    <div class="tab" id="tab-relatorio">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <div>
-          <p style="font-size:16px;font-weight:600">Relatório diário</p>
-          <p id="rel-data" style="font-size:13px;color:var(--muted)"></p>
+      <!-- DASHBOARD -->
+      <div class="tab on" id="tab-dashboard">
+        <div class="section-head"><div><div class="section-title">Dashboard</div><div class="section-sub" id="dash-data"></div></div></div>
+        <div class="metrics" id="dash-metrics">
+          <div class="metric red"><div class="metric-n" id="d-urgentes">—</div><div class="metric-l">Prazos urgentes</div></div>
+          <div class="metric amber"><div class="metric-n" id="d-pendentes">—</div><div class="metric-l">Tarefas pendentes</div></div>
+          <div class="metric green"><div class="metric-n" id="d-leads">—</div><div class="metric-l">Leads novos (30d)</div></div>
+          <div class="metric purple"><div class="metric-n" id="d-processos">—</div><div class="metric-l">Processos ativos</div></div>
         </div>
-        <button class="btn-imprimir" onclick="window.print()">🖨 Imprimir</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div>
+            <div class="section-head" style="margin-bottom:10px"><div class="section-title" style="font-size:14px">Despachos pendentes</div><button class="btn btn-sm" onclick="nav('despacho',document.querySelector('[onclick*=despacho]'))">Ver todos</button></div>
+            <div id="dash-tarefas" class="recent-list"><div class="empty"><span class="spin"></span>Carregando…</div></div>
+          </div>
+          <div>
+            <div class="section-head" style="margin-bottom:10px"><div class="section-title" style="font-size:14px">Prazos próximos</div><button class="btn btn-sm" onclick="nav('djen',document.querySelector('[onclick*=djen]'))">Ver todos</button></div>
+            <div id="dash-prazos" class="recent-list"><div class="empty"><span class="spin"></span>Carregando…</div></div>
+          </div>
+        </div>
       </div>
-      <div class="rel-wrap" id="rel-conteudo">
-        <div class="loading"><span class="spin"></span>Carregando…</div>
-      </div>
-    </div>
 
-    <!-- TAB: OABs -->
-    <div class="tab" id="tab-oabs">
-      <p style="font-size:16px;font-weight:600;margin-bottom:4px">OABs monitoradas</p>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Advogados cujas publicações são capturadas automaticamente pelo sistema.</p>
-      <div class="oab-list" id="oab-list">
-        <div class="loading"><span class="spin"></span>Carregando…</div>
+      <!-- CENTRAL DE DESPACHO -->
+      <div class="tab" id="tab-despacho">
+        <div class="section-head">
+          <div><div class="section-title">Central de Despacho</div><div class="section-sub">Tarefas aguardando sua decisão</div></div>
+          <button class="btn btn-blue" onclick="abrirModalTarefa()">+ Nova tarefa</button>
+        </div>
+        <div class="filters">
+          <input type="text" id="f-desp-busca" placeholder="Buscar…" oninput="renderDespacho()">
+          <select id="f-desp-status" onchange="renderDespacho()">
+            <option value="pendente">Pendentes</option>
+            <option value="em_analise">Em análise</option>
+            <option value="">Todas</option>
+            <option value="aprovado">Aprovadas</option>
+            <option value="rejeitado">Rejeitadas</option>
+          </select>
+          <select id="f-desp-prio" onchange="renderDespacho()">
+            <option value="">Qualquer prioridade</option>
+            <option value="alta">Alta</option>
+            <option value="media">Média</option>
+            <option value="baixa">Baixa</option>
+          </select>
+        </div>
+        <div id="lista-tarefas"><div class="empty"><span class="spin"></span>Carregando…</div></div>
       </div>
+
+      <!-- MONITOR DJEN -->
+      <div class="tab" id="tab-djen">
+        <div class="section-head"><div class="section-title">Monitor DJEN</div></div>
+        <div class="metrics">
+          <div class="metric red"><div class="metric-n" id="dj-urgentes">—</div><div class="metric-l">Urgentes (≤3 dias)</div></div>
+          <div class="metric amber"><div class="metric-n" id="dj-atencao">—</div><div class="metric-l">Atenção (4–7 dias)</div></div>
+          <div class="metric green"><div class="metric-n" id="dj-ok">—</div><div class="metric-l">Em dia</div></div>
+          <div class="metric"><div class="metric-n" id="dj-total">—</div><div class="metric-l">Total</div></div>
+        </div>
+        <div class="filters">
+          <input type="text" id="f-dj-busca" placeholder="Buscar processo…" oninput="renderDJEN()">
+          <select id="f-dj-status" onchange="renderDJEN()">
+            <option value="">Todos</option><option value="vencido">Vencido</option>
+            <option value="urgente">Urgente</option><option value="atencao">Atenção</option>
+            <option value="ok">Em dia</option><option value="indeterminado">Indeterminado</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr>
+            <th>Processo</th><th>Tipo</th><th>Tribunal</th>
+            <th>Intimação</th><th>Vence</th><th>Dias úteis</th><th>Status</th>
+          </tr></thead>
+          <tbody id="tbody-djen"><tr><td colspan="7" class="empty"><span class="spin"></span>Carregando…</td></tr></tbody>
+          </table>
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center">Arts. 219, 224 e 231-I do CPC · Feriados nacionais incluídos · Verifique recessos tribunalícios</p>
+      </div>
+
+      <!-- CALENDÁRIO -->
+      <div class="tab" id="tab-calendario">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <button class="btn" onclick="navMes(-1)">← anterior</button>
+          <span style="font-size:16px;font-weight:600" id="cal-label"></span>
+          <button class="btn" onclick="navMes(1)">próximo →</button>
+        </div>
+        <div class="cal-grid" style="margin-bottom:4px">
+          <div class="cal-hdr">Dom</div><div class="cal-hdr">Seg</div><div class="cal-hdr">Ter</div>
+          <div class="cal-hdr">Qua</div><div class="cal-hdr">Qui</div><div class="cal-hdr">Sex</div><div class="cal-hdr">Sáb</div>
+        </div>
+        <div class="cal-grid" id="cal-body"></div>
+        <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#E24B4A;display:inline-block"></span>Urgente</span>
+          <span style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#EF9F27;display:inline-block"></span>Atenção</span>
+          <span style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#639922;display:inline-block"></span>Em dia</span>
+        </div>
+      </div>
+
+      <!-- LEADS -->
+      <div class="tab" id="tab-leads">
+        <div class="section-head">
+          <div><div class="section-title">Pipeline de Leads</div><div class="section-sub">Todos os contatos do escritório</div></div>
+          <button class="btn btn-blue" onclick="abrirModalLead()">+ Novo lead</button>
+        </div>
+        <div class="kanban" id="kanban-leads"><div class="empty"><span class="spin"></span>Carregando…</div></div>
+      </div>
+
+      <!-- CLIENTES -->
+      <div class="tab" id="tab-clientes">
+        <div class="section-head">
+          <div><div class="section-title">Clientes</div></div>
+          <button class="btn btn-blue" onclick="abrirModalCliente()">+ Novo cliente</button>
+        </div>
+        <div class="filters">
+          <input type="text" id="f-cli-busca" placeholder="Buscar nome, CPF/CNPJ…" oninput="renderClientes()">
+          <select id="f-cli-tipo" onchange="renderClientes()"><option value="">PF e PJ</option><option value="pf">Pessoa Física</option><option value="pj">Pessoa Jurídica</option></select>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>Nome</th><th>Tipo</th><th>CPF/CNPJ</th><th>Área</th><th>Contato</th><th>Desde</th></tr></thead>
+          <tbody id="tbody-clientes"><tr><td colspan="6" class="empty"><span class="spin"></span>Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PROCESSOS -->
+      <div class="tab" id="tab-processos">
+        <div class="section-head"><div class="section-title">Processos</div></div>
+        <div class="filters">
+          <input type="text" id="f-proc-busca" placeholder="Buscar número ou cliente…" oninput="renderProcessos()">
+          <select id="f-proc-status" onchange="renderProcessos()"><option value="">Todos</option><option value="ativo">Ativos</option><option value="arquivado">Arquivados</option></select>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>Número</th><th>Cliente</th><th>Área</th><th>Tribunal</th><th>Fase</th><th>Status</th></tr></thead>
+          <tbody id="tbody-proc"><tr><td colspan="6" class="empty"><span class="spin"></span>Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ORQUESTRADOR -->
+      <div class="tab" id="tab-orquestrador">
+        <div class="section-head"><div class="section-title">Orquestrador</div><div class="section-sub">Log de decisões automáticas</div></div>
+        <div class="metrics">
+          <div class="metric purple"><div class="metric-n" id="orq-hoje">—</div><div class="metric-l">Decisões hoje</div></div>
+          <div class="metric amber"><div class="metric-n" id="orq-despacho">—</div><div class="metric-l">Enviadas ao despacho</div></div>
+          <div class="metric green"><div class="metric-n" id="orq-auto">—</div><div class="metric-l">Resolvidas automaticamente</div></div>
+          <div class="metric blue" style="background:var(--blue-bg);border-color:#b5d4f4"><div class="metric-n" style="color:var(--blue)" id="orq-wpp">—</div><div class="metric-l">WhatsApp enviados</div></div>
+        </div>
+        <div class="section-title" style="font-size:14px;margin-bottom:12px">Log de decisões</div>
+        <div id="log-orq"><div class="empty"><span class="spin"></span>Carregando…</div></div>
+      </div>
+
+      <!-- AGENTES -->
+      <div class="tab" id="tab-agentes">
+        <div class="section-head"><div class="section-title">Agentes</div><div class="section-sub">Integração e chaves de webhook</div></div>
+        <div id="lista-agentes"><div class="empty"><span class="spin"></span>Carregando…</div></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- MODAL TAREFA -->
+<div class="modal-bg" id="modal-tarefa">
+  <div class="modal">
+    <h2>Nova tarefa</h2>
+    <div class="field"><label>Título</label><input id="nt-titulo" type="text" placeholder="Descreva a tarefa…"></div>
+    <div class="field"><label>Tipo</label>
+      <select id="nt-tipo" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;background:var(--surface)">
+        <option value="prazo_judicial">Prazo judicial</option><option value="lead">Lead</option>
+        <option value="financeiro">Financeiro</option><option value="conteudo">Conteúdo</option><option value="outro">Outro</option>
+      </select>
     </div>
-  </main>
+    <div class="field"><label>Prioridade</label>
+      <select id="nt-prio" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;background:var(--surface)">
+        <option value="alta">Alta</option><option value="media" selected>Média</option><option value="baixa">Baixa</option>
+      </select>
+    </div>
+    <div class="field"><label>Número do processo (opcional)</label><input id="nt-proc" type="text" placeholder="0000000-00.0000.0.00.0000"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharModal('modal-tarefa')">Cancelar</button>
+      <button class="btn btn-blue" onclick="criarTarefa()">Criar tarefa</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LEAD -->
+<div class="modal-bg" id="modal-lead">
+  <div class="modal">
+    <h2>Novo lead</h2>
+    <div class="field"><label>Nome</label><input id="nl-nome" type="text"></div>
+    <div class="field"><label>E-mail</label><input id="nl-email" type="email"></div>
+    <div class="field"><label>Telefone</label><input id="nl-tel" type="text"></div>
+    <div class="field"><label>Área</label>
+      <select id="nl-area" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;background:var(--surface)">
+        <option value="">Não definida</option><option value="previdenciario">Previdenciário</option>
+        <option value="saude">Saúde</option><option value="trabalhista">Trabalhista</option>
+        <option value="civil">Civil</option><option value="familia">Família</option>
+        <option value="criminal">Criminal</option><option value="odonto">Escudo Odonto</option>
+      </select>
+    </div>
+    <div class="field"><label>Origem</label>
+      <select id="nl-origem" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;background:var(--surface)">
+        <option value="manual">Manual</option><option value="whatsapp">WhatsApp</option>
+        <option value="formulario">Formulário</option><option value="indicacao">Indicação</option>
+        <option value="instagram">Instagram</option><option value="quiz">Quiz</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharModal('modal-lead')">Cancelar</button>
+      <button class="btn btn-blue" onclick="salvarLead()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CLIENTE -->
+<div class="modal-bg" id="modal-cliente">
+  <div class="modal">
+    <h2>Novo cliente</h2>
+    <div class="field"><label>Nome</label><input id="nc-nome" type="text"></div>
+    <div class="field"><label>Tipo</label>
+      <select id="nc-tipo" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;background:var(--surface)">
+        <option value="pf">Pessoa Física</option><option value="pj">Pessoa Jurídica</option>
+      </select>
+    </div>
+    <div class="field"><label>CPF / CNPJ</label><input id="nc-doc" type="text"></div>
+    <div class="field"><label>E-mail</label><input id="nc-email" type="email"></div>
+    <div class="field"><label>Telefone</label><input id="nc-tel" type="text"></div>
+    <div class="field"><label>Área principal</label>
+      <select id="nc-area" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;background:var(--surface)">
+        <option value="">—</option><option value="previdenciario">Previdenciário</option>
+        <option value="saude">Saúde</option><option value="trabalhista">Trabalhista</option>
+        <option value="civil">Civil</option><option value="familia">Família</option>
+        <option value="criminal">Criminal</option><option value="odonto">Escudo Odonto</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharModal('modal-cliente')">Cancelar</button>
+      <button class="btn btn-blue" onclick="salvarCliente()">Salvar</button>
+    </div>
+  </div>
 </div>
 
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// ---------------------------------------------------------------------------
-// Estado global
-// ---------------------------------------------------------------------------
-let sb = null
-let REGISTROS = []
+let sb, ESC_ID
+let PRAZOS=[], TAREFAS=[], LEADS=[], CLIENTES=[], PROCESSOS=[], LOG=[], AGENTES=[]
 let calAno, calMes
+const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+const PIPELINE=['novo','contato','qualificado','proposta','fechado','perdido']
+const PIPELINE_LABELS={novo:'Novo',contato:'Contato',qualificado:'Qualificado',proposta:'Proposta',fechado:'Fechado',perdido:'Perdido'}
 
-const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-               'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
-const DIAS_URGENTE = 3
-const DIAS_ATENCAO = 7
-
-// ---------------------------------------------------------------------------
-// Config e login
-// ---------------------------------------------------------------------------
-window.salvarConfig = function() {
-  const url  = document.getElementById('cfg-url').value.trim().replace(/\/$/, '')
-  const anon = document.getElementById('cfg-anon').value.trim()
-  const err  = document.getElementById('erro-config')
-  if (!url || !anon) { mostrarErro(err, 'Preencha os dois campos.'); return }
-  if (!url.startsWith('https://')) { mostrarErro(err, 'A URL deve começar com https://'); return }
-  localStorage.setItem('sb_url', url)
-  localStorage.setItem('sb_anon', anon)
-  iniciarCliente(url, anon)
-  mostrar('screen-login')
+// --- AUTH ---
+window.salvarConfig=function(){
+  const url=document.getElementById('c-url').value.trim().replace(/\/$/,'')
+  const anon=document.getElementById('c-anon').value.trim()
+  if(!url||!anon){showErr('e-config','Preencha os dois campos.');return}
+  localStorage.setItem('sb_url',url); localStorage.setItem('sb_anon',anon)
+  sb=createClient(url,anon); mostrar('s-login')
+}
+window.fazerLogin=async function(){
+  const email=document.getElementById('l-email').value.trim()
+  const senha=document.getElementById('l-senha').value
+  const btn=document.getElementById('btn-login')
+  if(!email||!senha){showErr('e-login','Preencha e-mail e senha.');return}
+  btn.disabled=true; btn.textContent='Entrando…'
+  const {data,error}=await sb.auth.signInWithPassword({email,password:senha})
+  btn.disabled=false; btn.textContent='Entrar'
+  if(error){showErr('e-login',error.message.includes('Invalid')?'E-mail ou senha incorretos.':error.message);return}
+  await iniciarApp(data.user)
+}
+window.fazerLogout=async function(){
+  await sb.auth.signOut(); PRAZOS=[]; TAREFAS=[]; LEADS=[]; CLIENTES=[]; PROCESSOS=[]; LOG=[]; AGENTES=[]
+  document.getElementById('app').style.display='none'; mostrar('s-login')
 }
 
-window.voltarConfig = function() { mostrar('screen-config') }
-
-window.fazerLogin = async function() {
-  const email = document.getElementById('login-email').value.trim()
-  const senha = document.getElementById('login-senha').value
-  const btn   = document.getElementById('btn-login')
-  const err   = document.getElementById('erro-login')
-  if (!email || !senha) { mostrarErro(err, 'Preencha e-mail e senha.'); return }
-  btn.disabled = true; btn.textContent = 'Entrando…'
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: senha })
-  btn.disabled = false; btn.textContent = 'Entrar'
-  if (error) { mostrarErro(err, traduzirErro(error.message)); return }
-  entrarNoApp(data.user)
-}
-
-window.fazerLogout = async function() {
-  await sb.auth.signOut()
-  REGISTROS = []
-  mostrar('screen-login')
-  document.getElementById('app').style.display = 'none'
-}
-
-window.capturarAgora = function() {
-  alert('Para capturar novas publicações, rode:\n\npython capturar.py\n\nna pasta captura-publicacoes.')
-}
-
-function traduzirErro(msg) {
-  if (msg.includes('Invalid login')) return 'E-mail ou senha incorretos.'
-  if (msg.includes('Email not confirmed')) return 'Confirme seu e-mail antes de entrar.'
-  return msg
-}
-
-// ---------------------------------------------------------------------------
-// Inicialização
-// ---------------------------------------------------------------------------
-function iniciarCliente(url, anon) {
-  sb = createClient(url, anon)
-}
-
-function mostrar(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
-  const el = document.getElementById(id)
-  if (el) el.classList.add('active')
-}
-
-function mostrarErro(el, msg) {
-  el.textContent = msg; el.style.display = 'block'
-  setTimeout(() => el.style.display = 'none', 5000)
-}
-
-async function entrarNoApp(user) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
-  document.getElementById('app').style.display = 'block'
-  document.getElementById('usuario-email').textContent = user.email
-
-  const hoje = new Date()
-  calAno = hoje.getFullYear()
-  calMes = hoje.getMonth()
-
+// --- INIT ---
+async function iniciarApp(user){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'))
+  document.getElementById('app').style.display='flex'
+  document.getElementById('h-user').textContent=user.email
+  const hoje=new Date(); calAno=hoje.getFullYear(); calMes=hoje.getMonth()
+  document.getElementById('dash-data').textContent=hoje.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+  await carregarEscritorio()
   await carregarTudo()
 }
 
-// ---------------------------------------------------------------------------
-// Tabs
-// ---------------------------------------------------------------------------
-window.trocarTab = function(nome, btn) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
-  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'))
-  document.getElementById('tab-' + nome).classList.add('active')
-  btn.classList.add('active')
-  if (nome === 'calendario') renderCalendario()
-  if (nome === 'relatorio')  renderRelatorio()
-  if (nome === 'oabs')       carregarOABs()
+async function carregarEscritorio(){
+  const {data}=await sb.from('escritorios').select('id').single()
+  if(data) ESC_ID=data.id
 }
 
-// ---------------------------------------------------------------------------
-// Carregar dados do Supabase
-// ---------------------------------------------------------------------------
-async function carregarTudo() {
-  document.getElementById('tbody').innerHTML =
-    '<tr><td colspan="7" class="loading"><span class="spin"></span>Carregando publicações…</td></tr>'
+async function carregarTudo(){
+  await Promise.all([
+    carregarPrazos(), carregarTarefas(), carregarLeads(),
+    carregarClientes(), carregarProcessos(), carregarLog(), carregarAgentes()
+  ])
+  renderDashboard(); renderDespacho(); renderDJEN(); renderKanban()
+  renderClientes(); renderProcessos(); renderLog(); renderAgentes()
+}
 
-  const { data: prazos, error } = await sb
-    .from('prazos')
-    .select(`
-      id, numero_processo, tipo_prazo, data_disponibilizacao,
-      data_intimacao, data_fim_prazo, dias_uteis, base_legal,
-      publicacoes ( numero_comunicacao, tipo_documento, tribunal,
-                   tipo_comunicacao, capturado_em )
-    `)
-    .order('data_fim_prazo', { ascending: true, nullsFirst: false })
+window.recarregar=carregarTudo
 
-  if (error) {
-    document.getElementById('tbody').innerHTML =
-      `<tr><td colspan="7" class="vazio">Erro ao carregar: ${error.message}</td></tr>`
-    return
-  }
-
-  const hoje = new Date(); hoje.setHours(0,0,0,0)
-
-  REGISTROS = (prazos || []).map(r => {
-    const pub = r.publicacoes || {}
-    let status = 'sem-data'
-    let diasRestantes = null
-
-    if (r.data_fim_prazo) {
-      const vence = new Date(r.data_fim_prazo + 'T12:00:00')
-      const diffMs = vence - hoje
-      const diffDias = Math.ceil(diffMs / 86400000)
-      // aproximação em dias corridos → dias úteis (simplificado para exibição)
-      diasRestantes = r.dias_uteis !== null ? calcDiasUteisRestantes(r.data_fim_prazo) : diffDias
-      if (diasRestantes < 0) status = 'vencido'
-      else if (diasRestantes <= DIAS_URGENTE) status = 'urgente'
-      else if (diasRestantes <= DIAS_ATENCAO) status = 'atencao'
-      else status = 'ok'
-    } else if (r.dias_uteis === null) {
-      status = 'indeterminado'
-    }
-
-    return {
-      id: r.id,
-      numero_processo: r.numero_processo || '—',
-      tipo_doc: r.tipo_prazo || pub.tipo_documento || '—',
-      tribunal: pub.tribunal || '—',
-      data_intimacao: fmtData(r.data_intimacao),
-      data_fim_prazo: fmtData(r.data_fim_prazo),
-      data_fim_iso: r.data_fim_prazo || '',
-      dias_uteis: r.dias_uteis,
-      dias_restantes: diasRestantes,
-      base_legal: r.base_legal || '',
-      status,
-    }
+// --- DADOS ---
+async function carregarPrazos(){
+  const {data}=await sb.from('prazos').select(`id,numero_processo,tipo_prazo,data_disponibilizacao,data_intimacao,data_fim_prazo,dias_uteis,base_legal,publicacoes(tipo_documento,tribunal,capturado_em)`).order('data_fim_prazo',{ascending:true,nullsFirst:false})
+  const hoje=new Date(); hoje.setHours(0,0,0,0)
+  PRAZOS=(data||[]).map(r=>{
+    const pub=r.publicacoes||{}
+    let status='sem-data', dias=null
+    if(r.data_fim_prazo){
+      dias=calcDiasUteis(r.data_fim_prazo)
+      status=dias<0?'vencido':dias<=3?'urgente':dias<=7?'atencao':'ok'
+    } else if(r.dias_uteis===null) status='indeterminado'
+    return {...r,tipo_doc:r.tipo_prazo||pub.tipo_documento||'—',tribunal:pub.tribunal||'—',
+      data_intimacao_fmt:fmtData(r.data_intimacao),data_fim_fmt:fmtData(r.data_fim_prazo),
+      data_fim_iso:r.data_fim_prazo||'',dias_restantes:dias,status}
   })
-
-  atualizarMetricas()
-  renderTabela()
 }
 
-function calcDiasUteisRestantes(dataFimStr) {
-  const hoje = new Date(); hoje.setHours(0,0,0,0)
-  const fim  = new Date(dataFimStr + 'T12:00:00'); fim.setHours(0,0,0,0)
-  if (fim < hoje) return -1
-  let count = 0, d = new Date(hoje)
-  while (d <= fim) {
-    const dow = d.getDay()
-    if (dow !== 0 && dow !== 6) count++
-    d.setDate(d.getDate() + 1)
-  }
-  return count
+async function carregarTarefas(){
+  const {data}=await sb.from('tarefas').select(`*,agentes(nome,icone,cor)`).order('criado_em',{ascending:false})
+  TAREFAS=data||[]
+  const pend=TAREFAS.filter(t=>t.status==='pendente'||t.status==='em_analise').length
+  const badge=document.getElementById('badge-despacho')
+  badge.textContent=pend; badge.style.display=pend>0?'inline':'none'
 }
 
-function fmtData(iso) {
-  if (!iso) return '—'
-  const [a, m, d] = iso.split('-')
-  return `${d}/${m}/${a}`
+async function carregarLeads(){
+  const {data}=await sb.from('leads').select('*').order('criado_em',{ascending:false})
+  LEADS=data||[]
+}
+async function carregarClientes(){
+  const {data}=await sb.from('clientes').select('*').order('criado_em',{ascending:false})
+  CLIENTES=data||[]
+}
+async function carregarProcessos(){
+  const {data}=await sb.from('processos').select(`*,clientes(nome)`).order('criado_em',{ascending:false})
+  PROCESSOS=data||[]
+}
+async function carregarLog(){
+  const {data}=await sb.from('log_orquestrador').select('*').order('criado_em',{ascending:false}).limit(50)
+  LOG=data||[]
+}
+async function carregarAgentes(){
+  const {data}=await sb.from('agentes').select('*').order('criado_em')
+  AGENTES=data||[]
 }
 
-// ---------------------------------------------------------------------------
-// Métricas
-// ---------------------------------------------------------------------------
-function atualizarMetricas() {
-  const u = REGISTROS.filter(r => r.status === 'urgente' || r.status === 'vencido').length
-  const a = REGISTROS.filter(r => r.status === 'atencao').length
-  const o = REGISTROS.filter(r => r.status === 'ok').length
-  document.getElementById('m-urgente').textContent = u
-  document.getElementById('m-atencao').textContent = a
-  document.getElementById('m-ok').textContent = o
-  document.getElementById('m-total').textContent = REGISTROS.length
+// --- DASHBOARD ---
+function renderDashboard(){
+  const urgentes=PRAZOS.filter(p=>p.status==='urgente'||p.status==='vencido').length
+  const pendentes=TAREFAS.filter(t=>t.status==='pendente'||t.status==='em_analise').length
+  const ms30=new Date(); ms30.setDate(ms30.getDate()-30)
+  const leads30=LEADS.filter(l=>new Date(l.criado_em)>=ms30).length
+  const procAtivos=PROCESSOS.filter(p=>!p.status||p.status==='ativo').length
+  document.getElementById('d-urgentes').textContent=urgentes
+  document.getElementById('d-pendentes').textContent=pendentes
+  document.getElementById('d-leads').textContent=leads30
+  document.getElementById('d-processos').textContent=procAtivos
+
+  const tarefasEl=document.getElementById('dash-tarefas')
+  const top=TAREFAS.filter(t=>t.status==='pendente').slice(0,5)
+  tarefasEl.innerHTML=top.length?top.map(t=>`
+    <div class="recent-item">
+      <div class="recent-item-left">
+        <div class="recent-item-title">${t.titulo}</div>
+        <div class="recent-item-sub">${t.docket} · ${t.agentes?.nome||'Manual'} · ${fmtDataHora(t.criado_em)}</div>
+      </div>
+      <span class="badge ${prioBadge(t.prioridade)}">${t.prioridade}</span>
+    </div>`).join(''):'<div class="empty">Nenhuma tarefa pendente 🎉</div>'
+
+  const prazosEl=document.getElementById('dash-prazos')
+  const topP=PRAZOS.filter(p=>p.status==='urgente'||p.status==='atencao').slice(0,5)
+  prazosEl.innerHTML=topP.length?topP.map(p=>`
+    <div class="recent-item">
+      <div class="recent-item-left">
+        <div class="recent-item-title mono">${p.numero_processo}</div>
+        <div class="recent-item-sub">${p.tipo_doc} · Vence ${p.data_fim_fmt}</div>
+      </div>
+      <span class="badge ${statusBadge(p.status)}">${statusLabel(p.status)}</span>
+    </div>`).join(''):'<div class="empty">Nenhum prazo urgente</div>'
 }
 
-// ---------------------------------------------------------------------------
-// Tabela
-// ---------------------------------------------------------------------------
-window.renderTabela = function() {
-  const busca   = document.getElementById('busca').value.toLowerCase()
-  const fstatus = document.getElementById('f-status').value
-  const ftipo   = document.getElementById('f-tipo').value
-  const LABELS  = { vencido:'Vencido', urgente:'Urgente', atencao:'Atenção', ok:'Em dia', indeterminado:'Verificar', 'sem-data':'Sem data' }
-
-  const filtrados = REGISTROS.filter(r => {
-    if (fstatus && r.status !== fstatus) return false
-    if (ftipo   && r.tipo_doc !== ftipo)  return false
-    if (busca && !(
-      r.numero_processo.toLowerCase().includes(busca) ||
-      r.tipo_doc.toLowerCase().includes(busca) ||
-      r.tribunal.toLowerCase().includes(busca)
-    )) return false
+// --- DESPACHO ---
+function renderDespacho(){
+  const busca=document.getElementById('f-desp-busca').value.toLowerCase()
+  const status=document.getElementById('f-desp-status').value
+  const prio=document.getElementById('f-desp-prio').value
+  const fil=TAREFAS.filter(t=>{
+    if(status&&t.status!==status)return false
+    if(prio&&t.prioridade!==prio)return false
+    if(busca&&!(t.titulo.toLowerCase().includes(busca)||(t.numero_processo||'').includes(busca)))return false
     return true
   })
-
-  document.getElementById('contagem').textContent = `${filtrados.length} registro(s) exibido(s).`
-
-  const tbody = document.getElementById('tbody')
-  if (!filtrados.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="vazio">Nenhuma publicação encontrada.</td></tr>'
-    return
-  }
-
-  tbody.innerHTML = filtrados.map(r => {
-    const diasTxt = r.dias_restantes === null ? '—'
-      : r.dias_restantes < 0
-        ? `<span style="color:var(--red);font-weight:700">Vencido (${Math.abs(r.dias_restantes)}d)</span>`
-        : `${r.dias_restantes} dia(s)`
-    return `<tr>
-      <td>
-        <div class="processo-num">${r.numero_processo}</div>
-        <div class="processo-base">${r.base_legal}</div>
-      </td>
-      <td>${r.tipo_doc}</td>
-      <td>${r.tribunal}</td>
-      <td>${r.data_intimacao}</td>
-      <td>${r.data_fim_prazo}</td>
-      <td>${diasTxt}</td>
-      <td><span class="badge badge-${r.status}">${LABELS[r.status] || r.status}</span></td>
-    </tr>`
+  const el=document.getElementById('lista-tarefas')
+  if(!fil.length){el.innerHTML='<div class="empty">Nenhuma tarefa encontrada.</div>';return}
+  el.innerHTML=fil.map(t=>{
+    const ag=t.agentes||{}
+    const podeDecir=t.status==='pendente'||t.status==='em_analise'
+    return `<div class="tarefa-card">
+      <div class="tarefa-head">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            ${ag.icone?`<span>${ag.icone}</span>`:''}
+            <span class="badge b-gray" style="font-size:10px">${t.docket}</span>
+            <span class="badge ${prioBadge(t.prioridade)}">${t.prioridade}</span>
+            <span class="badge ${statusTarBadge(t.status)}">${statusTarLabel(t.status)}</span>
+          </div>
+          <div class="tarefa-titulo">${t.titulo}</div>
+          <div class="tarefa-meta">${ag.nome||'Manual'} · ${fmtDataHora(t.criado_em)}${t.numero_processo?` · <span class="mono">${t.numero_processo}</span>`:''}</div>
+        </div>
+      </div>
+      ${podeDecir?`<div class="tarefa-actions">
+        <button class="btn btn-ok btn-sm" onclick="decidirTarefa('${t.id}','aprovado')">✓ Aprovar</button>
+        <button class="btn btn-sm" onclick="decidirTarefa('${t.id}','em_analise')">👁 Em análise</button>
+        <button class="btn btn-no btn-sm" onclick="decidirTarefa('${t.id}','rejeitado')">✗ Rejeitar</button>
+      </div>`:''}
+    </div>`
   }).join('')
 }
 
-// ---------------------------------------------------------------------------
-// Calendário
-// ---------------------------------------------------------------------------
-window.navMes = function(delta) {
-  calMes += delta
-  if (calMes < 0)  { calMes = 11; calAno-- }
-  if (calMes > 11) { calMes = 0;  calAno++ }
-  renderCalendario()
+window.decidirTarefa=async function(id,status){
+  await sb.from('tarefas').update({status,decidido_em:new Date().toISOString()}).eq('id',id)
+  await carregarTarefas(); renderDespacho(); renderDashboard()
 }
 
-function renderCalendario() {
-  document.getElementById('cal-mes-label').textContent = `${MESES[calMes]} ${calAno}`
-  const hoje = new Date(); hoje.setHours(0,0,0,0)
-  const primeiro = new Date(calAno, calMes, 1)
-  const ultDia   = new Date(calAno, calMes + 1, 0).getDate()
-  const iniciaDia = primeiro.getDay()
-
-  const porDia = {}
-  REGISTROS.forEach(r => {
-    if (!r.data_fim_iso) return
-    const [a, m] = r.data_fim_iso.split('-').map(Number)
-    if (a === calAno && m - 1 === calMes) {
-      const d = parseInt(r.data_fim_iso.split('-')[2])
-      if (!porDia[d]) porDia[d] = []
-      porDia[d].push(r)
-    }
+// --- DJEN ---
+function renderDJEN(){
+  const busca=document.getElementById('f-dj-busca').value.toLowerCase()
+  const st=document.getElementById('f-dj-status').value
+  document.getElementById('dj-urgentes').textContent=PRAZOS.filter(p=>p.status==='urgente'||p.status==='vencido').length
+  document.getElementById('dj-atencao').textContent=PRAZOS.filter(p=>p.status==='atencao').length
+  document.getElementById('dj-ok').textContent=PRAZOS.filter(p=>p.status==='ok').length
+  document.getElementById('dj-total').textContent=PRAZOS.length
+  const fil=PRAZOS.filter(p=>{
+    if(st&&p.status!==st)return false
+    if(busca&&!p.numero_processo.toLowerCase().includes(busca))return false
+    return true
   })
-
-  let html = ''
-  for (let i = 0; i < iniciaDia; i++) {
-    const d = new Date(calAno, calMes, -iniciaDia + i + 1)
-    html += `<div class="cal-dia outro-mes"><div class="cal-num">${d.getDate()}</div></div>`
-  }
-  for (let dia = 1; dia <= ultDia; dia++) {
-    const ehHoje = new Date(calAno, calMes, dia).getTime() === hoje.getTime()
-    const items  = (porDia[dia] || []).slice(0, 3)
-    const mais   = (porDia[dia] || []).length - 3
-    const dots   = items.map(r =>
-      `<div class="cal-item ${r.status}" title="${r.numero_processo}">${r.tipo_doc}</div>`
-    ).join('') + (mais > 0 ? `<div class="cal-item" style="color:var(--muted)">+${mais} mais</div>` : '')
-    html += `<div class="cal-dia${ehHoje ? ' hoje' : ''}"><div class="cal-num">${dia}</div>${dots}</div>`
-  }
-  const restante = (7 - (iniciaDia + ultDia) % 7) % 7
-  for (let i = 1; i <= restante; i++) {
-    html += `<div class="cal-dia outro-mes"><div class="cal-num">${i}</div></div>`
-  }
-  document.getElementById('cal-body').innerHTML = html
+  const tbody=document.getElementById('tbody-djen')
+  tbody.innerHTML=fil.length?fil.map(p=>`<tr>
+    <td><div class="mono">${p.numero_processo}</div><div style="font-size:11px;color:var(--muted)">${p.base_legal||''}</div></td>
+    <td>${p.tipo_doc}</td><td>${p.tribunal}</td>
+    <td>${p.data_intimacao_fmt}</td><td>${p.data_fim_fmt}</td>
+    <td>${p.dias_restantes===null?'—':p.dias_restantes<0?`<span style="color:var(--red);font-weight:700">Vencido</span>`:`${p.dias_restantes}d`}</td>
+    <td><span class="badge ${statusBadge(p.status)}">${statusLabel(p.status)}</span></td>
+  </tr>`).join(''):'<tr><td colspan="7" class="empty">Nenhum resultado.</td></tr>'
 }
 
-// ---------------------------------------------------------------------------
-// Relatório diário
-// ---------------------------------------------------------------------------
-function renderRelatorio() {
-  const hoje = new Date()
-  const diasSemana = ['domingo','segunda-feira','terça-feira','quarta-feira',
-                      'quinta-feira','sexta-feira','sábado']
-  document.getElementById('rel-data').textContent =
-    `${hoje.toLocaleDateString('pt-BR')} · ${diasSemana[hoje.getDay()]}`
-
-  const urgentes  = REGISTROS.filter(r => r.status === 'urgente' || r.status === 'vencido')
-  const atencao   = REGISTROS.filter(r => r.status === 'atencao')
-  const ok        = REGISTROS.filter(r => r.status === 'ok')
-  const indets    = REGISTROS.filter(r => r.status === 'indeterminado')
-
-  function blocoItems(lista) {
-    return lista.map(r => {
-      const diasTxt = r.dias_restantes !== null && r.dias_restantes >= 0
-        ? `${r.dias_restantes} dia(s) útil(eis) · `
-        : r.dias_restantes < 0 ? 'VENCIDO · ' : ''
-      return `<div class="bloco-item">
-        <p>${r.numero_processo}</p>
-        <small>${r.tipo_doc} · Vence ${r.data_fim_prazo} · ${diasTxt}${r.base_legal}</small>
-      </div>`
-    }).join('')
+// --- CALENDÁRIO ---
+window.navMes=function(d){
+  calMes+=d; if(calMes<0){calMes=11;calAno--} if(calMes>11){calMes=0;calAno++}
+  renderCal()
+}
+function renderCal(){
+  document.getElementById('cal-label').textContent=`${MESES[calMes]} ${calAno}`
+  const hoje=new Date(); hoje.setHours(0,0,0,0)
+  const primeiro=new Date(calAno,calMes,1)
+  const ult=new Date(calAno,calMes+1,0).getDate()
+  const ini=primeiro.getDay()
+  const por={}
+  PRAZOS.forEach(p=>{
+    if(!p.data_fim_iso)return
+    const [a,m]=p.data_fim_iso.split('-').map(Number)
+    if(a===calAno&&m-1===calMes){const d=parseInt(p.data_fim_iso.split('-')[2]);(por[d]=por[d]||[]).push(p)}
+  })
+  let h=''
+  for(let i=0;i<ini;i++){const d=new Date(calAno,calMes,-ini+i+1);h+=`<div class="cal-dia outro"><div class="cal-num">${d.getDate()}</div></div>`}
+  for(let dia=1;dia<=ult;dia++){
+    const eh=new Date(calAno,calMes,dia).getTime()===hoje.getTime()
+    const items=(por[dia]||[]).slice(0,3)
+    const mais=(por[dia]||[]).length-3
+    h+=`<div class="cal-dia${eh?' hoje':''}"><div class="cal-num">${dia}</div>${items.map(p=>`<div class="cal-dot ${p.status==='vencido'?'red2':p.status==='urgente'?'red':p.status==='atencao'?'amber':'green'}">${p.tipo_doc}</div>`).join('')}${mais>0?`<div class="cal-dot" style="color:var(--muted)">+${mais}</div>`:''}</div>`
   }
-
-  let html = ''
-
-  if (urgentes.length) html += `
-    <div class="bloco bloco-urgente">
-      <div class="bloco-titulo">⚠ Urgente / Vencido — ${urgentes.length} processo(s)</div>
-      ${blocoItems(urgentes)}
-    </div>`
-
-  if (atencao.length) html += `
-    <div class="bloco bloco-atencao">
-      <div class="bloco-titulo">🕐 Atenção — ${atencao.length} processo(s)</div>
-      ${blocoItems(atencao)}
-    </div>`
-
-  if (ok.length) html += `
-    <div class="bloco bloco-ok">
-      <div class="bloco-titulo" style="color:var(--green)">✓ Em dia — ${ok.length} processo(s)</div>
-      <p style="font-size:12px;color:var(--muted)">Nenhuma ação imediata necessária.</p>
-    </div>`
-
-  if (indets.length) html += `
-    <div class="bloco bloco-indet">
-      <div class="bloco-titulo">⚡ Verificar manualmente — ${indets.length} processo(s)</div>
-      ${blocoItems(indets)}
-    </div>`
-
-  html += `
-    <div class="rel-resumo">
-      <div><div class="rel-resumo-num" style="color:var(--red)">${urgentes.length}</div><div class="rel-resumo-lbl">Urgente/venc.</div></div>
-      <div><div class="rel-resumo-num" style="color:var(--amber)">${atencao.length}</div><div class="rel-resumo-lbl">Atenção</div></div>
-      <div><div class="rel-resumo-num" style="color:var(--green)">${ok.length}</div><div class="rel-resumo-lbl">Em dia</div></div>
-      <div><div class="rel-resumo-num" style="color:var(--gray)">${indets.length}</div><div class="rel-resumo-lbl">Verificar</div></div>
-    </div>
-    <p class="rel-footer">Prazos calculados conforme arts. 219, 224 e 231-I do CPC · Feriados nacionais incluídos · Verifique recessos tribunalícios (art. 220 CPC) manualmente.</p>`
-
-  document.getElementById('rel-conteudo').innerHTML = html || '<p style="color:var(--muted);font-size:13px">Nenhum prazo carregado ainda.</p>'
+  const rest=(7-(ini+ult)%7)%7
+  for(let i=1;i<=rest;i++)h+=`<div class="cal-dia outro"><div class="cal-num">${i}</div></div>`
+  document.getElementById('cal-body').innerHTML=h
 }
 
-// ---------------------------------------------------------------------------
-// OABs monitoradas
-// ---------------------------------------------------------------------------
-async function carregarOABs() {
-  const { data, error } = await sb
-    .from('oabs_monitoradas')
-    .select('numero_oab, uf_oab, ativo')
-    .order('uf_oab')
-
-  const el = document.getElementById('oab-list')
-  if (error || !data) {
-    el.innerHTML = `<p style="color:var(--muted);font-size:13px">Erro ao carregar OABs: ${error?.message}</p>`
-    return
-  }
-  if (!data.length) {
-    el.innerHTML = `<p style="color:var(--muted);font-size:13px">Nenhuma OAB cadastrada. Elas são importadas automaticamente pelo script Python.</p>`
-    return
-  }
-  el.innerHTML = data.map(o => `
-    <div class="oab-item">
-      <div>
-        <div class="oab-num">OAB ${o.numero_oab}/${o.uf_oab}</div>
-        <div class="oab-uf">Estado: ${o.uf_oab}</div>
-      </div>
-      <span class="${o.ativo ? 'badge-ativo' : 'badge-inativo'}">${o.ativo ? 'Ativo' : 'Inativo'}</span>
+// --- KANBAN LEADS ---
+function renderKanban(){
+  const por={}; PIPELINE.forEach(s=>por[s]=[])
+  LEADS.forEach(l=>{if(por[l.status_pipeline])por[l.status_pipeline].push(l)})
+  document.getElementById('kanban-leads').innerHTML=PIPELINE.map(s=>`
+    <div class="kanban-col">
+      <div class="kanban-col-title">${PIPELINE_LABELS[s]}<span class="kanban-count">${por[s].length}</span></div>
+      ${por[s].map(l=>`<div class="kanban-card">
+        <div class="kanban-card-name">${l.nome}</div>
+        <div class="kanban-card-sub">${l.area||'—'} · ${l.origem||'—'}</div>
+        ${l.telefone?`<div class="kanban-card-sub">${l.telefone}</div>`:''}
+      </div>`).join('')}
     </div>`).join('')
 }
 
-// ---------------------------------------------------------------------------
-// Boot
-// ---------------------------------------------------------------------------
-;(async function boot() {
-  const url  = localStorage.getItem('sb_url')
-  const anon = localStorage.getItem('sb_anon')
+// --- CLIENTES ---
+function renderClientes(){
+  const busca=document.getElementById('f-cli-busca').value.toLowerCase()
+  const tipo=document.getElementById('f-cli-tipo').value
+  const fil=CLIENTES.filter(c=>{
+    if(tipo&&c.tipo!==tipo)return false
+    if(busca&&!(c.nome.toLowerCase().includes(busca)||(c.cpf_cnpj||'').includes(busca)))return false
+    return true
+  })
+  document.getElementById('tbody-clientes').innerHTML=fil.length?fil.map(c=>`<tr>
+    <td style="font-weight:600">${c.nome}</td>
+    <td><span class="badge b-gray">${c.tipo.toUpperCase()}</span></td>
+    <td class="mono">${c.cpf_cnpj||'—'}</td>
+    <td>${c.area_principal||'—'}</td>
+    <td>${c.email||c.telefone||'—'}</td>
+    <td style="color:var(--muted)">${fmtData(c.criado_em?.slice(0,10))}</td>
+  </tr>`).join(''):'<tr><td colspan="6" class="empty">Nenhum cliente encontrado.</td></tr>'
+}
+window.renderClientes=renderClientes
 
-  if (url && anon) {
-    iniciarCliente(url, anon)
-    document.getElementById('cfg-url').value  = url
-    document.getElementById('cfg-anon').value = anon
+// --- PROCESSOS ---
+function renderProcessos(){
+  const busca=document.getElementById('f-proc-busca').value.toLowerCase()
+  const st=document.getElementById('f-proc-status').value
+  const fil=PROCESSOS.filter(p=>{
+    if(st&&(p.status||'ativo')!==st)return false
+    if(busca&&!(p.numero_processo.toLowerCase().includes(busca)||(p.clientes?.nome||'').toLowerCase().includes(busca)))return false
+    return true
+  })
+  document.getElementById('tbody-proc').innerHTML=fil.length?fil.map(p=>`<tr>
+    <td class="mono">${p.numero_processo}</td>
+    <td>${p.clientes?.nome||'—'}</td>
+    <td>${p.area||'—'}</td>
+    <td>${p.tribunal||'—'}</td>
+    <td>${p.fase||'—'}</td>
+    <td><span class="badge ${(p.status||'ativo')==='ativo'?'b-green':'b-gray'}">${p.status||'ativo'}</span></td>
+  </tr>`).join(''):'<tr><td colspan="6" class="empty">Nenhum processo encontrado.</td></tr>'
+}
+window.renderProcessos=renderProcessos
 
-    const { data: { session } } = await sb.auth.getSession()
-    if (session) {
-      entrarNoApp(session.user)
-      return
-    }
-    mostrar('screen-login')
-  } else {
-    mostrar('screen-config')
-  }
+// --- LOG ORQUESTRADOR ---
+function renderLog(){
+  const hoje=new Date().toISOString().slice(0,10)
+  const hj=LOG.filter(l=>l.criado_em.startsWith(hoje))
+  document.getElementById('orq-hoje').textContent=hj.length
+  document.getElementById('orq-despacho').textContent=hj.filter(l=>l.acao_tomada==='criou_tarefa').length
+  document.getElementById('orq-auto').textContent=hj.filter(l=>l.acao_tomada==='auto_aprovado').length
+  document.getElementById('orq-wpp').textContent=hj.filter(l=>l.whatsapp_enviado).length
+  const el=document.getElementById('log-orq')
+  el.innerHTML=LOG.length?LOG.map(l=>`
+    <div class="log-item ${l.acao_tomada==='auto_aprovado'?'auto':l.acao_tomada==='criou_tarefa'?'despacho':'whatsapp'}">
+      <div class="log-evento">${l.evento}</div>
+      ${l.raciocinio?`<div class="log-racional">${l.raciocinio}</div>`:''}
+      <div class="log-meta">${l.agente_origem||''}${l.agente_destino?` → ${l.agente_destino}`:''} · ${fmtDataHora(l.criado_em)}${l.whatsapp_enviado?' · 📱 WhatsApp':''}</div>
+    </div>`).join(''):'<div class="empty">Nenhuma decisão registrada ainda.</div>'
+}
+
+// --- AGENTES ---
+function renderAgentes(){
+  const el=document.getElementById('lista-agentes')
+  el.innerHTML=AGENTES.length?AGENTES.map(a=>`
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:16px">
+      <div style="width:44px;height:44px;border-radius:50%;background:${a.cor}22;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${a.icone||'🤖'}</div>
+      <div style="flex:1">
+        <div style="font-weight:600;margin-bottom:2px">${a.nome}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${a.descricao||''}</div>
+        <div style="font-size:11px;color:var(--muted)">Webhook key: <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">${a.webhook_key}</code></div>
+      </div>
+      <span class="badge ${a.ativo?'b-green':'b-gray'}">${a.ativo?'Ativo':'Inativo'}</span>
+    </div>`).join(''):'<div class="empty">Nenhum agente cadastrado. Rode o schema_plataforma.sql no Supabase.</div>'
+}
+
+// --- MODAIS ---
+window.abrirModalTarefa=()=>document.getElementById('modal-tarefa').classList.add('on')
+window.abrirModalLead=()=>document.getElementById('modal-lead').classList.add('on')
+window.abrirModalCliente=()=>document.getElementById('modal-cliente').classList.add('on')
+window.fecharModal=(id)=>document.getElementById(id).classList.remove('on')
+
+window.criarTarefa=async function(){
+  const titulo=document.getElementById('nt-titulo').value.trim()
+  if(!titulo){alert('Preencha o título.');return}
+  const {data:dk}=await sb.rpc('proximo_docket',{p_escritorio_id:ESC_ID})
+  await sb.from('tarefas').insert({
+    escritorio_id:ESC_ID, docket:dk||'GD-MANUAL',
+    titulo, tipo:document.getElementById('nt-tipo').value,
+    prioridade:document.getElementById('nt-prio').value,
+    numero_processo:document.getElementById('nt-proc').value||null
+  })
+  fecharModal('modal-tarefa'); document.getElementById('nt-titulo').value=''; document.getElementById('nt-proc').value=''
+  await carregarTarefas(); renderDespacho(); renderDashboard()
+}
+
+window.salvarLead=async function(){
+  const nome=document.getElementById('nl-nome').value.trim()
+  if(!nome){alert('Preencha o nome.');return}
+  await sb.from('leads').insert({
+    escritorio_id:ESC_ID, nome,
+    email:document.getElementById('nl-email').value||null,
+    telefone:document.getElementById('nl-tel').value||null,
+    area:document.getElementById('nl-area').value||null,
+    origem:document.getElementById('nl-origem').value||'manual'
+  })
+  fecharModal('modal-lead'); await carregarLeads(); renderKanban()
+}
+
+window.salvarCliente=async function(){
+  const nome=document.getElementById('nc-nome').value.trim()
+  if(!nome){alert('Preencha o nome.');return}
+  await sb.from('clientes').insert({
+    escritorio_id:ESC_ID, nome,
+    tipo:document.getElementById('nc-tipo').value,
+    cpf_cnpj:document.getElementById('nc-doc').value||null,
+    email:document.getElementById('nc-email').value||null,
+    telefone:document.getElementById('nc-tel').value||null,
+    area_principal:document.getElementById('nc-area').value||null
+  })
+  fecharModal('modal-cliente'); await carregarClientes(); renderClientes()
+}
+
+// --- NAVEGAÇÃO ---
+window.nav=function(nome,btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'))
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'))
+  document.getElementById('tab-'+nome).classList.add('on')
+  if(btn)btn.classList.add('active')
+  if(nome==='calendario')renderCal()
+}
+window.renderDespacho=renderDespacho
+window.renderDJEN=renderDJEN
+
+// --- UTILS ---
+function mostrar(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));document.getElementById(id).classList.add('on')}
+window.mostrar=mostrar
+function showErr(id,msg){const e=document.getElementById(id);e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',5000)}
+function fmtData(iso){if(!iso)return'—';const[a,m,d]=iso.slice(0,10).split('-');return`${d}/${m}/${a}`}
+function fmtDataHora(iso){if(!iso)return'—';const d=new Date(iso);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+function calcDiasUteis(fim){
+  const hoje=new Date();hoje.setHours(0,0,0,0)
+  const f=new Date(fim+'T12:00:00');f.setHours(0,0,0,0)
+  if(f<hoje)return-1;let c=0,d=new Date(hoje)
+  while(d<=f){if(d.getDay()!==0&&d.getDay()!==6)c++;d.setDate(d.getDate()+1)}
+  return c
+}
+function statusBadge(s){return{vencido:'b-red2',urgente:'b-red',atencao:'b-amber',ok:'b-green',indeterminado:'b-gray','sem-data':'b-gray'}[s]||'b-gray'}
+function statusLabel(s){return{vencido:'Vencido',urgente:'Urgente',atencao:'Atenção',ok:'Em dia',indeterminado:'Verificar','sem-data':'Sem data'}[s]||s}
+function prioBadge(p){return{alta:'b-red',media:'b-amber',baixa:'b-gray'}[p]||'b-gray'}
+function statusTarBadge(s){return{pendente:'b-amber',em_analise:'b-blue',aprovado:'b-green',rejeitado:'b-red',editado:'b-purple'}[s]||'b-gray'}
+function statusTarLabel(s){return{pendente:'Pendente',em_analise:'Em análise',aprovado:'Aprovado',rejeitado:'Rejeitado',editado:'Editado'}[s]||s}
+
+// --- BOOT ---
+;(async function(){
+  const url=localStorage.getItem('sb_url'), anon=localStorage.getItem('sb_anon')
+  if(url&&anon){
+    document.getElementById('c-url').value=url; document.getElementById('c-anon').value=anon
+    sb=createClient(url,anon)
+    const {data:{session}}=await sb.auth.getSession()
+    if(session){await iniciarApp(session.user);return}
+    mostrar('s-login')
+  } else mostrar('s-config')
 })()
 </script>
 </body>
