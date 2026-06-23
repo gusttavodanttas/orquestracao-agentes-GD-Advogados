@@ -148,6 +148,13 @@ tr:hover td{background:#fafaf9}
 .recent-item-left{flex:1;min-width:0}
 .recent-item-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .recent-item-sub{font-size:11px;color:var(--muted)}
+/* DETALHE PUBLICAÇÃO */
+.pub-field{margin-bottom:14px}
+.pub-field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.pub-field p{font-size:13px;color:var(--text)}
+.pub-teor{background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:14px;font-size:13px;line-height:1.7;max-height:320px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+tr.clickable{cursor:pointer}
+tr.clickable:hover td{background:#f0f4fa}
 /* PRINT */
 @media print{aside,header,.filters,.tarefa-actions,.btn,.modal-bg{display:none!important}.tab{display:block!important}main{padding:0}}
 </style>
@@ -363,6 +370,26 @@ tr:hover td{background:#fafaf9}
   </div>
 </div>
 
+<!-- MODAL PUBLICAÇÃO -->
+<div class="modal-bg" id="modal-pub">
+  <div class="modal" style="max-width:680px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 style="margin:0" id="pub-titulo">Publicação</h2>
+      <button class="btn btn-sm" onclick="fecharModal('modal-pub')">✕ Fechar</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px" id="pub-meta"></div>
+    <div class="pub-field">
+      <label>Teor da publicação</label>
+      <div class="pub-teor" id="pub-teor"><span class="spin"></span> Carregando…</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-blue" onclick="criarTarefaDaPub()">+ Criar tarefa no Despacho</button>
+      <button class="btn" onclick="window.print()">🖨 Imprimir</button>
+      <button class="btn" onclick="fecharModal('modal-pub')">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL TAREFA -->
 <div class="modal-bg" id="modal-tarefa">
   <div class="modal">
@@ -507,7 +534,7 @@ window.recarregar=carregarTudo
 
 // --- DADOS ---
 async function carregarPrazos(){
-  const {data}=await sb.from('prazos').select(`id,numero_processo,tipo_prazo,data_disponibilizacao,data_intimacao,data_fim_prazo,dias_uteis,base_legal,publicacoes(tipo_documento,tribunal,capturado_em)`).order('data_fim_prazo',{ascending:true,nullsFirst:false})
+  const {data}=await sb.from('prazos').select(`id,numero_processo,tipo_prazo,data_disponibilizacao,data_intimacao,data_fim_prazo,dias_uteis,base_legal,publicacao_id,publicacoes(id,tipo_documento,tribunal,capturado_em)`).order('data_fim_prazo',{ascending:true,nullsFirst:false})
   const hoje=new Date(); hoje.setHours(0,0,0,0)
   PRAZOS=(data||[]).map(r=>{
     const pub=r.publicacoes||{}
@@ -643,13 +670,15 @@ function renderDJEN(){
     return true
   })
   const tbody=document.getElementById('tbody-djen')
-  tbody.innerHTML=fil.length?fil.map(p=>`<tr>
-    <td><div class="mono">${p.numero_processo}</div><div style="font-size:11px;color:var(--muted)">${p.base_legal||''}</div></td>
-    <td>${p.tipo_doc}</td><td>${p.tribunal}</td>
-    <td>${p.data_intimacao_fmt}</td><td>${p.data_fim_fmt}</td>
-    <td>${p.dias_restantes===null?'—':p.dias_restantes<0?`<span style="color:var(--red);font-weight:700">Vencido</span>`:`${p.dias_restantes}d`}</td>
-    <td><span class="badge ${statusBadge(p.status)}">${statusLabel(p.status)}</span></td>
-  </tr>`).join(''):'<tr><td colspan="7" class="empty">Nenhum resultado.</td></tr>'
+  tbody.innerHTML=fil.length?fil.map(p=>{
+    const pubId = p.publicacoes?.id || p.publicacao_id || ''
+    return `<tr class="clickable" onclick="abrirPub('${pubId}', ${JSON.stringify(p).replace(/'/g,"&#39;")})">
+      <td><div class="mono">${p.numero_processo}</div><div style="font-size:11px;color:var(--muted)">${p.base_legal||''}</div></td>
+      <td>${p.tipo_doc}</td><td>${p.tribunal}</td>
+      <td>${p.data_intimacao_fmt}</td><td>${p.data_fim_fmt}</td>
+      <td>${p.dias_restantes===null?'—':p.dias_restantes<0?`<span style="color:var(--red);font-weight:700">Vencido</span>`:`${p.dias_restantes}d`}</td>
+      <td><span class="badge ${statusBadge(p.status)}">${statusLabel(p.status)}</span> <span style="font-size:11px;color:var(--muted)">↗</span></td>
+    </tr>`}).join(''):'<tr><td colspan="7" class="empty">Nenhum resultado.</td></tr>'
 }
 
 // --- CALENDÁRIO ---
@@ -767,6 +796,55 @@ function renderAgentes(){
       </div>
       <span class="badge ${a.ativo?'b-green':'b-gray'}">${a.ativo?'Ativo':'Inativo'}</span>
     </div>`).join(''):'<div class="empty">Nenhum agente cadastrado. Rode o schema_plataforma.sql no Supabase.</div>'
+}
+
+// --- DETALHE PUBLICAÇÃO ---
+let _pubAtual = null
+
+window.abrirPub = async function(publicacaoId, prazo) {
+  _pubAtual = { publicacaoId, prazo }
+  document.getElementById('modal-pub').classList.add('on')
+  document.getElementById('pub-titulo').textContent = prazo.numero_processo
+  document.getElementById('pub-teor').innerHTML = '<span class="spin"></span> Carregando…'
+  document.getElementById('pub-meta').innerHTML = `
+    <div class="pub-field" style="margin:0"><label>Tipo</label><p>${prazo.tipo_doc}</p></div>
+    <div class="pub-field" style="margin:0"><label>Tribunal</label><p>${prazo.tribunal||'—'}</p></div>
+    <div class="pub-field" style="margin:0"><label>Status</label><p><span class="badge ${statusBadge(prazo.status)}">${statusLabel(prazo.status)}</span></p></div>
+    <div class="pub-field" style="margin:0"><label>Intimação</label><p>${prazo.data_intimacao_fmt}</p></div>
+    <div class="pub-field" style="margin:0"><label>Vencimento</label><p>${prazo.data_fim_fmt}</p></div>
+    <div class="pub-field" style="margin:0"><label>Dias úteis</label><p>${prazo.dias_restantes === null ? '—' : prazo.dias_restantes < 0 ? '<span style="color:var(--red);font-weight:700">Vencido</span>' : prazo.dias_restantes + ' dia(s)'}</p></div>
+    <div class="pub-field" style="margin:0;grid-column:1/-1"><label>Base legal</label><p>${prazo.base_legal||'—'}</p></div>
+  `
+  const { data, error } = await sb
+    .from('publicacoes')
+    .select('texto_limpo, bruto, capturado_em')
+    .eq('id', publicacaoId)
+    .single()
+
+  if (error || !data) {
+    document.getElementById('pub-teor').textContent = 'Não foi possível carregar o teor da publicação.'
+    return
+  }
+  const texto = data.texto_limpo || data.bruto?.texto || data.bruto?.conteudo || ''
+  document.getElementById('pub-teor').textContent = texto || '(Texto não disponível nesta publicação)'
+}
+
+window.criarTarefaDaPub = async function() {
+  if (!_pubAtual) return
+  const { prazo } = _pubAtual
+  const { data: dk } = await sb.rpc('proximo_docket', { p_escritorio_id: ESC_ID })
+  await sb.from('tarefas').insert({
+    escritorio_id: ESC_ID,
+    docket: dk || 'GD-MANUAL',
+    tipo: 'prazo_judicial',
+    titulo: `${prazo.tipo_doc} · ${prazo.numero_processo} · Vence ${prazo.data_fim_fmt}`,
+    prioridade: prazo.status === 'urgente' || prazo.status === 'vencido' ? 'alta' : 'media',
+    numero_processo: prazo.numero_processo,
+    publicacao_id: _pubAtual.publicacaoId,
+  })
+  fecharModal('modal-pub')
+  await carregarTarefas()
+  alert(`Tarefa ${dk} criada na Central de Despacho.`)
 }
 
 // --- MODAIS ---
