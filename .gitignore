@@ -1,3 +1,6 @@
+# Credenciais — NUNCA enviar ao git
+.env
+
 # Arquivos gerados em tempo de execução — contêm dados sensíveis (LGPD)
 publicacoes.json
 vistos.json

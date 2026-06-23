@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-capturar.py — Captura publicações do DJEN via API oficial do PJe.
+capturar.py — Captura publicações do DJEN via API oficial do PJe
+              e grava no Supabase (requer .env configurado).
 
 Uso:
     python capturar.py
@@ -11,16 +12,31 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
+from dotenv import load_dotenv
 import requests
 from bs4 import BeautifulSoup
 
+from prazos_cpc import calcular_prazo
+
 # ---------------------------------------------------------------------------
-# Configurações — ajuste aqui se necessário
+# Variáveis de ambiente (.env)
+# ---------------------------------------------------------------------------
+load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+ESCRITORIO_ID = os.getenv("ESCRITORIO_ID", "")
+
+_SUPABASE_CONFIGURADO = bool(SUPABASE_URL and SUPABASE_KEY and ESCRITORIO_ID)
+
+# ---------------------------------------------------------------------------
+# Configurações da API do DJEN
 # ---------------------------------------------------------------------------
 API_URL = "https://comunicaapi.pje.jus.br/api/v1/comunicacao"
 ITENS_POR_PAGINA = 100
@@ -32,7 +48,7 @@ ARQUIVO_VISTOS = Path("vistos.json")
 ARQUIVO_SAIDA = Path("publicacoes.json")
 
 # ---------------------------------------------------------------------------
-# Logging — sem dados de partes (LGPD: não logar nomes, CPF ou conteúdo)
+# Logging — sem dados de partes (LGPD)
 # ---------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
@@ -43,7 +59,7 @@ log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Funções puras (testáveis de forma isolada)
+# Funções puras
 # ---------------------------------------------------------------------------
 
 def limpar_html(texto: str | None) -> str:
@@ -54,14 +70,13 @@ def limpar_html(texto: str | None) -> str:
 
 
 def calcular_periodo(dias: int) -> tuple[str, str]:
-    """Devolve (data_inicio, data_fim) no formato YYYY-MM-DD para os últimos N dias."""
+    """Devolve (data_inicio, data_fim) no formato YYYY-MM-DD."""
     hoje = datetime.today()
     inicio = hoje - timedelta(days=dias)
     return inicio.strftime("%Y-%m-%d"), hoje.strftime("%Y-%m-%d")
 
 
 def carregar_json(caminho: Path, padrao):
-    """Lê arquivo JSON; se não existir, devolve `padrao`."""
     if caminho.exists():
         with caminho.open(encoding="utf-8") as arq:
             return json.load(arq)
@@ -69,27 +84,33 @@ def carregar_json(caminho: Path, padrao):
 
 
 def salvar_json(caminho: Path, dados) -> None:
-    """Grava `dados` em JSON com indentação legível."""
     with caminho.open("w", encoding="utf-8") as arq:
         json.dump(dados, arq, ensure_ascii=False, indent=2)
 
 
+def _normalizar_data(bruto: dict) -> str | None:
+    """Extrai data de disponibilização do item da API (suporta dois formatos)."""
+    d = bruto.get("data_disponibilizacao")
+    if d:
+        return d  # já em YYYY-MM-DD
+    d = bruto.get("datadisponibilizacao", "")
+    if len(d) == 10 and "/" in d:
+        dia, mes, ano = d.split("/")
+        return f"{ano}-{mes}-{dia}"
+    return None
+
+
 # ---------------------------------------------------------------------------
-# Requisição HTTP com controle de taxa e retry
+# Requisição à API DJEN com controle de taxa e retry
 # ---------------------------------------------------------------------------
 
 def requisitar(sessao: requests.Session, params: dict, tentativa: int = 1) -> dict:
-    """
-    GET na API com:
-    - Retry automático em erro 429 (muitas requisições), respeitando Retry-After.
-    - Saída imediata com mensagem clara em erro 403 (bloqueio geográfico).
-    """
+    """GET na API com retry em 429 e saída clara em 403."""
     if tentativa > MAX_TENTATIVAS:
         raise RuntimeError(
             f"A API respondeu com erro 429 por {MAX_TENTATIVAS} vezes seguidas. "
             "Aguarde alguns minutos e tente novamente."
         )
-
     try:
         resposta = sessao.get(API_URL, params=params, timeout=30)
     except requests.RequestException as exc:
@@ -98,8 +119,7 @@ def requisitar(sessao: requests.Session, params: dict, tentativa: int = 1) -> di
     if resposta.status_code == 429:
         espera = int(resposta.headers.get("Retry-After", 30))
         log.warning(
-            "API sinalizou excesso de requisições (429). "
-            "Aguardando %ds antes de tentar novamente (tentativa %d/%d).",
+            "API sinalizou limite de taxa (429). Aguardando %ds (tentativa %d/%d).",
             espera, tentativa, MAX_TENTATIVAS,
         )
         time.sleep(espera)
@@ -107,9 +127,8 @@ def requisitar(sessao: requests.Session, params: dict, tentativa: int = 1) -> di
 
     if resposta.status_code == 403:
         log.error(
-            "Acesso bloqueado pela API (403). Isso normalmente indica bloqueio "
-            "geográfico — o servidor recusa conexões de fora do Brasil. "
-            "SOLUÇÃO: execute este script de um computador ou servidor com IP brasileiro."
+            "Acesso bloqueado (403) — provável bloqueio geográfico. "
+            "Execute este script de um computador ou servidor com IP brasileiro."
         )
         sys.exit(1)
 
@@ -118,7 +137,7 @@ def requisitar(sessao: requests.Session, params: dict, tentativa: int = 1) -> di
 
 
 # ---------------------------------------------------------------------------
-# Busca paginada para uma única OAB
+# Busca paginada para uma OAB
 # ---------------------------------------------------------------------------
 
 def buscar_publicacoes_oab(
@@ -128,10 +147,7 @@ def buscar_publicacoes_oab(
     data_inicio: str,
     data_fim: str,
 ) -> list[dict]:
-    """
-    Percorre todas as páginas da API para a OAB informada.
-    Devolve lista com todos os itens brutos encontrados.
-    """
+    """Percorre todas as páginas da API e devolve lista de itens brutos."""
     todos: list[dict] = []
     pagina = 0
 
@@ -144,22 +160,19 @@ def buscar_publicacoes_oab(
             "itensPorPagina": ITENS_POR_PAGINA,
             "pagina": pagina,
         }
-
         log.info("OAB %s/%s — consultando página %d …", numero_oab, uf_oab, pagina)
         dados = requisitar(sessao, params)
 
-        # A API pode usar "items" ou "content" dependendo da versão
         itens: list[dict] = dados.get("items") or dados.get("content") or []
         todos.extend(itens)
 
-        # --- Detectar última página (suporta diferentes formatos de resposta) ---
         ultima_pagina = (
-            dados.get("last") is True                           # formato Spring Page
-            or not itens                                         # lista vazia = fim
-            or len(itens) < ITENS_POR_PAGINA                    # menos que o pedido = fim
+            dados.get("last") is True
+            or not itens
+            or len(itens) < ITENS_POR_PAGINA
         )
-        total_paginas = dados.get("totalPages") or dados.get("total_pages")
-        if total_paginas is not None and pagina + 1 >= int(total_paginas):
+        total = dados.get("totalPages") or dados.get("total_pages")
+        if total is not None and pagina + 1 >= int(total):
             ultima_pagina = True
 
         if ultima_pagina:
@@ -172,11 +185,144 @@ def buscar_publicacoes_oab(
 
 
 # ---------------------------------------------------------------------------
+# Integração com Supabase (API REST — sem SDK adicional)
+# ---------------------------------------------------------------------------
+
+def _sb_headers(extras: dict | None = None) -> dict:
+    """Cabeçalhos padrão para chamadas à API REST do Supabase."""
+    h = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+    if extras:
+        h.update(extras)
+    return h
+
+
+def upsert_publicacao(sessao: requests.Session, pub: dict) -> str | None:
+    """
+    Grava ou atualiza publicação no Supabase.
+    Usa upsert pela chave (escritorio_id, numero_comunicacao).
+    Retorna o UUID do registro, ou None em caso de erro.
+    """
+    bruto = pub["dados_brutos"]
+    data_disp = _normalizar_data(bruto)
+    numero_processo = (
+        bruto.get("numero_processo")
+        or bruto.get("numeroprocessocommascara")
+    )
+
+    payload = {
+        "escritorio_id": ESCRITORIO_ID,
+        "numero_comunicacao": pub["numero_comunicacao"],
+        "bruto": bruto,                              # campo jsonb
+        "texto_limpo": pub.get("texto_limpo", ""),
+        "tipo_comunicacao": bruto.get("tipoComunicacao"),
+        "tipo_documento": bruto.get("tipoDocumento"),
+        "data_disponibilizacao": data_disp,
+        "numero_processo": numero_processo,
+        "tribunal": bruto.get("siglaTribunal"),
+    }
+
+    url = (
+        f"{SUPABASE_URL}/rest/v1/publicacoes"
+        "?on_conflict=escritorio_id,numero_comunicacao"
+    )
+    resp = sessao.post(
+        url,
+        json=payload,
+        headers=_sb_headers({"Prefer": "resolution=merge-duplicates,return=representation"}),
+        timeout=30,
+    )
+
+    if not resp.ok:
+        log.error(
+            "Supabase: erro ao gravar publicação %s — %s",
+            pub["numero_comunicacao"], resp.text,
+        )
+        return None
+
+    dados = resp.json()
+    return dados[0]["id"] if dados else None
+
+
+def upsert_prazo(sessao: requests.Session, pub: dict, publicacao_id: str) -> None:
+    """Calcula prazo conforme CPC e grava na tabela prazos."""
+    bruto = pub["dados_brutos"]
+    data_disp_str = _normalizar_data(bruto)
+
+    if not data_disp_str:
+        log.warning(
+            "Publicação %s sem data de disponibilização — prazo não calculado.",
+            pub["numero_comunicacao"],
+        )
+        return
+
+    try:
+        data_disp = date.fromisoformat(data_disp_str)
+    except ValueError:
+        log.warning("Data inválida '%s' — prazo ignorado.", data_disp_str)
+        return
+
+    tipo_doc = bruto.get("tipoDocumento")
+    prazo = calcular_prazo(data_disp, tipo_doc)
+
+    numero_processo = (
+        bruto.get("numero_processo")
+        or bruto.get("numeroprocessocommascara")
+        or "não informado"
+    )
+
+    payload = {
+        "escritorio_id": ESCRITORIO_ID,
+        "publicacao_id": publicacao_id,
+        "numero_processo": numero_processo,
+        "tipo_prazo": tipo_doc or "Não identificado",
+        "data_disponibilizacao": data_disp_str,
+        "data_intimacao": prazo["data_intimacao"].isoformat(),
+        "data_fim_prazo": (
+            prazo["data_fim_prazo"].isoformat()
+            if prazo["data_fim_prazo"] else None
+        ),
+        "dias_uteis": prazo["dias_uteis"],
+        "base_legal": prazo["base_legal"],
+    }
+
+    url = f"{SUPABASE_URL}/rest/v1/prazos?on_conflict=publicacao_id"
+    resp = sessao.post(
+        url,
+        json=payload,
+        headers=_sb_headers({"Prefer": "resolution=merge-duplicates,return=minimal"}),
+        timeout=30,
+    )
+
+    if not resp.ok:
+        log.error(
+            "Supabase: erro ao gravar prazo de %s — %s",
+            pub["numero_comunicacao"], resp.text,
+        )
+    else:
+        log.info(
+            "Prazo gravado: processo %s | %s dias úteis | vence %s",
+            numero_processo,
+            prazo["dias_uteis"],
+            prazo["data_fim_prazo"],
+        )
+
+
+# ---------------------------------------------------------------------------
 # Fluxo principal
 # ---------------------------------------------------------------------------
 
 def main(dias: int = 15) -> None:
-    # 1. Carregar lista de OABs
+    if not _SUPABASE_CONFIGURADO:
+        log.warning(
+            "Arquivo .env não encontrado ou incompleto. "
+            "Copie .env.exemplo para .env e preencha as credenciais. "
+            "Executando apenas com arquivo local (publicacoes.json)."
+        )
+
     oabs = carregar_json(ARQUIVO_OABS, [])
     if not oabs:
         log.error(
@@ -186,12 +332,10 @@ def main(dias: int = 15) -> None:
         )
         sys.exit(1)
 
-    # 2. Estado persistente
     vistos: set[str] = set(carregar_json(ARQUIVO_VISTOS, []))
     existentes: list[dict] = carregar_json(ARQUIVO_SAIDA, [])
     por_id: dict[str, dict] = {p["numero_comunicacao"]: p for p in existentes}
 
-    # 3. Período de busca
     data_inicio, data_fim = calcular_periodo(dias)
     log.info("Período: %s até %s (%d dias)", data_inicio, data_fim, dias)
     log.info("OABs a consultar: %d", len(oabs))
@@ -220,11 +364,10 @@ def main(dias: int = 15) -> None:
             log.error("Erro ao consultar OAB %s/%s: %s", numero_oab, uf_oab, exc)
             continue
 
-        log.info("OAB %s/%s: %d resultado(s) recebido(s) da API.", numero_oab, uf_oab, len(itens))
+        log.info("OAB %s/%s: %d resultado(s) recebido(s).", numero_oab, uf_oab, len(itens))
         novas_esta_oab = 0
 
         for item in itens:
-            # Normaliza a chave — a API pode usar camelCase ou snake_case
             chave = str(
                 item.get("numeroComunicacao")
                 or item.get("numero_comunicacao")
@@ -237,32 +380,39 @@ def main(dias: int = 15) -> None:
                 continue
 
             if chave in vistos:
-                continue  # já capturado em execução anterior
+                continue
 
-            # Limpar HTML — NÃO logar conteúdo (LGPD)
             texto_bruto = item.get("texto") or item.get("conteudo") or ""
-            texto_limpo = limpar_html(texto_bruto)
+            texto_limpo = limpar_html(texto_bruto)  # não logado — LGPD
 
-            por_id[chave] = {
+            registro: dict = {
                 "numero_comunicacao": chave,
                 "dados_brutos": item,
                 "texto_limpo": texto_limpo,
                 "capturado_em": datetime.now().isoformat(timespec="seconds"),
             }
+
+            # Gravar no Supabase (publicação + prazo)
+            if _SUPABASE_CONFIGURADO:
+                pub_id = upsert_publicacao(sessao, registro)
+                if pub_id:
+                    upsert_prazo(sessao, registro, pub_id)
+
+            por_id[chave] = registro
             vistos.add(chave)
             novas_esta_oab += 1
 
         total_novas += novas_esta_oab
-        log.info("OAB %s/%s: %d nova(s) publicação(ões).", numero_oab, uf_oab, novas_esta_oab)
+        log.info("OAB %s/%s: %d nova(s).", numero_oab, uf_oab, novas_esta_oab)
 
-        # Salvar após cada OAB: protege o progresso em caso de interrupção
+        # Salvar localmente após cada OAB (preserva progresso)
         salvar_json(ARQUIVO_SAIDA, list(por_id.values()))
         salvar_json(ARQUIVO_VISTOS, list(vistos))
 
         time.sleep(INTERVALO_REQ_SEG)
 
     log.info(
-        "Concluído. Novas publicações: %d. Total acumulado em '%s': %d.",
+        "Concluído. Novas: %d. Total em '%s': %d.",
         total_novas, ARQUIVO_SAIDA, len(por_id),
     )
 
@@ -273,13 +423,10 @@ def main(dias: int = 15) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Captura publicações do DJEN via API oficial do PJe."
+        description="Captura publicações do DJEN e grava no Supabase."
     )
     parser.add_argument(
-        "--dias",
-        type=int,
-        default=15,
-        metavar="N",
+        "--dias", type=int, default=15, metavar="N",
         help="Janela de busca em dias corridos (padrão: 15)",
     )
     args = parser.parse_args()
