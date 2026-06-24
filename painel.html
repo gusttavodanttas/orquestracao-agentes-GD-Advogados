@@ -335,14 +335,18 @@ tr.clickable:hover td{background:#f0f4fa}
 
       <!-- PROCESSOS -->
       <div class="tab" id="tab-processos">
-        <div class="section-head"><div class="section-title">Processos</div></div>
+        <div class="section-head">
+          <div><div class="section-title">Processos</div><div class="section-sub">Processos vinculados ao escritório</div></div>
+          <button class="btn btn-blue" onclick="abrirModalProcesso()">+ Novo processo</button>
+        </div>
         <div class="filters">
           <input type="text" id="f-proc-busca" placeholder="Buscar número ou cliente…" oninput="renderProcessos()">
           <select id="f-proc-status" onchange="renderProcessos()"><option value="">Todos</option><option value="ativo">Ativos</option><option value="arquivado">Arquivados</option></select>
+          <select id="f-proc-polo" onchange="renderProcessos()"><option value="">Qualquer polo</option><option value="reu">Réu / Executado</option><option value="autor">Autor / Exequente</option><option value="assistente">Assistente</option></select>
         </div>
         <div class="tbl-wrap">
-          <table><thead><tr><th>Número</th><th>Cliente</th><th>Área</th><th>Tribunal</th><th>Fase</th><th>Status</th></tr></thead>
-          <tbody id="tbody-proc"><tr><td colspan="6" class="empty"><span class="spin"></span>Carregando…</td></tr></tbody>
+          <table><thead><tr><th>Número</th><th>Cliente</th><th>Polo</th><th>Área</th><th>Tribunal</th><th>Fase</th><th>Status</th></tr></thead>
+          <tbody id="tbody-proc"><tr><td colspan="7" class="empty"><span class="spin"></span>Carregando…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -467,6 +471,54 @@ tr.clickable:hover td{background:#f0f4fa}
     <div class="modal-actions">
       <button class="btn" onclick="fecharModal('modal-cliente')">Cancelar</button>
       <button class="btn btn-blue" onclick="salvarCliente()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PROCESSO -->
+<div class="modal-bg" id="modal-processo">
+  <div class="modal">
+    <h2>Novo processo</h2>
+    <div class="field"><label>Número do processo</label><input id="np-num" type="text" placeholder="0000000-00.0000.0.00.0000"></div>
+    <div class="field"><label>Cliente</label>
+      <select id="np-cliente" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;background:var(--surface)">
+        <option value="">— selecione —</option>
+      </select>
+    </div>
+    <div class="field"><label>Polo do cliente</label>
+      <select id="np-polo" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;background:var(--surface)">
+        <option value="reu">Réu / Executado / Reclamado</option>
+        <option value="autor">Autor / Exequente / Reclamante</option>
+        <option value="assistente">Assistente / Litisconsorte</option>
+      </select>
+    </div>
+    <div class="field"><label>Área</label>
+      <select id="np-area" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;background:var(--surface)">
+        <option value="">—</option>
+        <option value="previdenciario">Previdenciário</option>
+        <option value="saude">Saúde</option>
+        <option value="trabalhista">Trabalhista</option>
+        <option value="civil">Civil</option>
+        <option value="familia">Família</option>
+        <option value="criminal">Criminal</option>
+        <option value="consumidor">Consumidor</option>
+        <option value="odonto">Escudo Odonto</option>
+      </select>
+    </div>
+    <div class="field"><label>Tribunal / Juízo</label><input id="np-tribunal" type="text" placeholder="TJDFT, TRF1, JFDF…"></div>
+    <div class="field"><label>Fase atual</label>
+      <select id="np-fase" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:14px;background:var(--surface)">
+        <option value="">—</option>
+        <option value="conhecimento">Conhecimento</option>
+        <option value="recursal">Recursal</option>
+        <option value="cumprimento">Cumprimento de sentença</option>
+        <option value="execucao">Execução</option>
+        <option value="precatorio">Precatório / RPV</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fecharModal('modal-processo')">Cancelar</button>
+      <button class="btn btn-blue" onclick="salvarProcesso()">Salvar</button>
     </div>
   </div>
 </div>
@@ -672,13 +724,17 @@ function renderDJEN(){
   window._djFil = fil
   const tbody = document.getElementById('tbody-djen')
   if(!fil.length){tbody.innerHTML='<tr><td colspan="7" class="empty">Nenhum resultado.</td></tr>';return}
-  tbody.innerHTML = fil.map((p,i)=>`<tr class="clickable" onclick="abrirPubIdx(${i})">
-    <td><div class="mono">${p.numero_processo}</div><div style="font-size:11px;color:var(--muted)">${p.base_legal||''}</div></td>
-    <td>${p.tipo_doc}</td><td>${p.tribunal}</td>
-    <td>${p.data_intimacao_fmt}</td><td>${p.data_fim_fmt}</td>
-    <td>${p.dias_restantes===null?'—':p.dias_restantes<0?'<span style="color:var(--red);font-weight:700">Vencido</span>':`${p.dias_restantes}d`}</td>
-    <td><span class="badge ${statusBadge(p.status)}">${statusLabel(p.status)}</span> <span style="font-size:11px;color:var(--hint)">↗</span></td>
-  </tr>`).join('')
+  tbody.innerHTML = fil.map((p,i)=>{
+    const proc=PROCESSOS.find(r=>_normProc(r.numero_processo)===_normProc(p.numero_processo))
+    const clienteInfo=proc?`<div style="font-size:11px;margin-top:2px"><span class="badge ${_poloBadge(proc.polo)}" style="font-size:10px">${_poloLabel(proc.polo)}</span> <span style="color:var(--text);font-weight:600">${proc.clientes?.nome||''}</span></div>`:''
+    return `<tr class="clickable" onclick="abrirPubIdx(${i})">
+      <td><div class="mono">${p.numero_processo}</div>${clienteInfo}<div style="font-size:11px;color:var(--muted)">${p.base_legal||''}</div></td>
+      <td>${p.tipo_doc}</td><td>${p.tribunal}</td>
+      <td>${p.data_intimacao_fmt}</td><td>${p.data_fim_fmt}</td>
+      <td>${p.dias_restantes===null?'—':p.dias_restantes<0?'<span style="color:var(--red);font-weight:700">Vencido</span>':`${p.dias_restantes}d`}</td>
+      <td><span class="badge ${statusBadge(p.status)}">${statusLabel(p.status)}</span> <span style="font-size:11px;color:var(--hint)">↗</span></td>
+    </tr>`
+  }).join('')
 }
 
 // --- CALENDÁRIO ---
@@ -747,24 +803,60 @@ function renderClientes(){
 window.renderClientes=renderClientes
 
 // --- PROCESSOS ---
+function _normProc(n){return(n||'').replace(/\D/g,'')}
+function _poloBadge(p){return{reu:'b-blue',autor:'b-green',assistente:'b-gray'}[p]||'b-gray'}
+function _poloLabel(p){return{reu:'Réu',autor:'Autor',assistente:'Assistente'}[p]||p||'—'}
+
 function renderProcessos(){
   const busca=document.getElementById('f-proc-busca').value.toLowerCase()
   const st=document.getElementById('f-proc-status').value
+  const polo=document.getElementById('f-proc-polo').value
   const fil=PROCESSOS.filter(p=>{
     if(st&&(p.status||'ativo')!==st)return false
+    if(polo&&p.polo!==polo)return false
     if(busca&&!(p.numero_processo.toLowerCase().includes(busca)||(p.clientes?.nome||'').toLowerCase().includes(busca)))return false
     return true
   })
   document.getElementById('tbody-proc').innerHTML=fil.length?fil.map(p=>`<tr>
     <td class="mono">${p.numero_processo}</td>
-    <td>${p.clientes?.nome||'—'}</td>
+    <td style="font-weight:600">${p.clientes?.nome||'—'}</td>
+    <td><span class="badge ${_poloBadge(p.polo)}">${_poloLabel(p.polo)}</span></td>
     <td>${p.area||'—'}</td>
     <td>${p.tribunal||'—'}</td>
     <td>${p.fase||'—'}</td>
     <td><span class="badge ${(p.status||'ativo')==='ativo'?'b-green':'b-gray'}">${p.status||'ativo'}</span></td>
-  </tr>`).join(''):'<tr><td colspan="6" class="empty">Nenhum processo encontrado.</td></tr>'
+  </tr>`).join(''):'<tr><td colspan="7" class="empty">Nenhum processo encontrado.</td></tr>'
 }
 window.renderProcessos=renderProcessos
+
+window.abrirModalProcesso=function(){
+  const sel=document.getElementById('np-cliente')
+  sel.innerHTML='<option value="">— selecione —</option>'+CLIENTES.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')
+  document.getElementById('np-num').value=''
+  document.getElementById('modal-processo').classList.add('on')
+}
+
+window.salvarProcesso=async function(){
+  const num=document.getElementById('np-num').value.trim()
+  const clienteId=document.getElementById('np-cliente').value
+  if(!num){alert('Informe o número do processo.');return}
+  if(!clienteId){alert('Selecione o cliente.');return}
+  const {error}=await sb.from('processos').insert({
+    escritorio_id:ESC_ID,
+    numero_processo:num,
+    cliente_id:clienteId,
+    polo:document.getElementById('np-polo').value,
+    area:document.getElementById('np-area').value||null,
+    tribunal:document.getElementById('np-tribunal').value||null,
+    fase:document.getElementById('np-fase').value||null,
+    status:'ativo',
+  })
+  if(error){alert('Erro ao salvar: '+error.message);return}
+  fecharModal('modal-processo')
+  await carregarProcessos()
+  renderProcessos()
+  renderDJEN()
+}
 
 // --- LOG ORQUESTRADOR ---
 function renderLog(){
