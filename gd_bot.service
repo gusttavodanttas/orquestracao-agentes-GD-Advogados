@@ -1,0 +1,14 @@
+[Unit]
+Description=GD Advogados — Bot Telegram
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/orquestracao-agentes-GD-Advogados
+ExecStart=/usr/bin/python3 /home/ubuntu/orquestracao-agentes-GD-Advogados/bot_telegram.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

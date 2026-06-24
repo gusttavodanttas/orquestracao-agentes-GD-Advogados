@@ -442,18 +442,19 @@ def notificar_telegram(urgentes: list[dict], total_novas: int) -> None:
 
     linhas.append(f"\n📥 {total_novas} nova(s) publicação(ões) capturada(s).")
 
-    try:
-        resp = requests.post(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            json={"chat_id": chat_id, "text": "\n".join(linhas), "parse_mode": "Markdown"},
-            timeout=15,
-        )
-        if resp.ok:
-            log.info("Notificação enviada via Telegram.")
-        else:
-            log.warning("Telegram: resposta inesperada — %s %s", resp.status_code, resp.text)
-    except requests.RequestException as exc:
-        log.warning("Falha ao enviar Telegram: %s", exc)
+    def _tg_post(payload: dict) -> None:
+        try:
+            r = requests.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json=payload, timeout=15,
+            )
+            if not r.ok:
+                log.warning("Telegram: %s %s", r.status_code, r.text)
+        except requests.RequestException as exc:
+            log.warning("Falha ao enviar Telegram: %s", exc)
+
+    _tg_post({"chat_id": chat_id, "text": "\n".join(linhas), "parse_mode": "Markdown"})
+    log.info("Notificação enviada via Telegram.")
 
 
 # ---------------------------------------------------------------------------
