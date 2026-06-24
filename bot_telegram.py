@@ -352,7 +352,7 @@ def cb_confirmar_prazo(call):
 
     prazos = sb_get("prazos", {
         "publicacao_id": f"eq.{pub_id}",
-        "select": "id,data_fim_prazo,dias_uteis,base_legal,confirmado_em,data_fim_confirmada,dias_corridos",
+        "select": "id,numero_processo,data_fim_prazo,dias_uteis,base_legal,confirmado_em,data_fim_confirmada,dias_corridos",
         "limit": "1",
     })
     if not prazos:
@@ -365,10 +365,23 @@ def cb_confirmar_prazo(call):
     data_fim = prazo.get("data_fim_confirmada") or prazo.get("data_fim_prazo")
     tipo_dias = "dias corridos" if prazo.get("dias_corridos") else "dias úteis"
 
+    # Busca número do processo e trecho do teor
+    pubs = sb_get("publicacoes", {
+        "id": f"eq.{pub_id}",
+        "select": "numero_processo,tipo_documento,texto_limpo",
+        "limit": "1",
+    })
+    pub_info = pubs[0] if pubs else {}
+    numero = pub_info.get("numero_processo") or prazo.get("numero_processo") or "?"
+    tipo_doc = pub_info.get("tipo_documento") or "?"
+    teor_raw = (pub_info.get("texto_limpo") or "").strip()
+    teor_resumo = teor_raw[:300] + "…" if len(teor_raw) > 300 else teor_raw
+
     if ja_confirmado:
         bot.send_message(
             CHAT_ID,
             f"✅ Prazo já confirmado em {fmt_data(ja_confirmado[:10])}.\n"
+            f"Processo: `{numero}`\n"
             f"Vencimento: *{fmt_data(data_fim)}*",
             parse_mode="Markdown",
         )
@@ -382,9 +395,12 @@ def cb_confirmar_prazo(call):
     bot.send_message(
         CHAT_ID,
         f"📅 *Confirmar prazo?*\n"
+        f"Processo: `{numero}` — {tipo_doc}\n"
         f"Vencimento calculado: *{fmt_data(data_fim)}*\n"
         f"({prazo.get('dias_uteis','?')} {tipo_dias})\n"
-        f"Base legal: _{prazo.get('base_legal','?')}_",
+        f"Base legal: _{prazo.get('base_legal','?')}_\n"
+        f"{'─' * 20}\n"
+        f"{teor_resumo}",
         parse_mode="Markdown",
         reply_markup=kb,
     )
