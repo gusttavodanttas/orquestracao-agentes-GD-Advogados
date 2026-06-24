@@ -73,9 +73,16 @@ log.addHandler(_fh)
 # ---------------------------------------------------------------------------
 
 def limpar_html(texto: str | None) -> str:
-    """Remove marcações HTML e devolve texto simples."""
+    """Remove marcações HTML e devolve texto simples em UTF-8."""
     if not texto:
         return ""
+    # Corrige double-encoding Latin-1 → UTF-8 quando necessário
+    if isinstance(texto, bytes):
+        texto = texto.decode("utf-8", errors="replace")
+    try:
+        texto = texto.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        pass
     return BeautifulSoup(texto, "html.parser").get_text(separator=" ", strip=True)
 
 
