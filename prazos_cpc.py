@@ -1,18 +1,28 @@
 """
-prazos_cpc.py — Cálculo determinístico de prazos processuais (CPC).
+prazos_cpc.py — Cálculo determinístico de prazos processuais.
 
 Regras implementadas:
-  Art. 219  — contam apenas dias úteis (segunda a sexta, excluídos feriados)
-  Art. 224  — exclui o dia do início, inclui o dia do vencimento
-  Art. 231 I — intimação pelo DJe considera-se realizada no 1º dia útil
-               seguinte à data de disponibilização
+  CPC (Lei 13.105/2015):
+    Art. 219  — contam apenas dias úteis (segunda a sexta, excluídos feriados)
+    Art. 224  — exclui o dia do início, inclui o dia do vencimento
+    Art. 231 I — intimação pelo DJe considera-se realizada no 1º dia útil
+                 seguinte à data de disponibilização
 
-IMPORTANTE: Art. 220 (suspensão em recesso de janeiro e julho) NÃO está
-implementado aqui — cada tribunal define datas exatas de recesso. Verifique
-manualmente se a publicação ocorreu próxima de um recesso.
+  Juizado Especial Cível (Lei 9.099/95):
+    Art. 41   — recurso inominado: 10 dias corridos
+    Art. 49   — embargos de declaração: 5 dias corridos
+    Demais    — prazos contados em dias corridos (não úteis)
+
+  Juizado Especial Federal (Lei 10.259/2001):
+    Art. 5    — prazos em dias corridos
+
+IMPORTANTE: Art. 220 CPC (suspensão em recesso de janeiro e julho) NÃO está
+implementado — cada tribunal define datas exatas. Verifique manualmente se a
+publicação ocorreu próxima de um recesso.
 """
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 
 # ---------------------------------------------------------------------------
@@ -51,7 +61,6 @@ def _pascoa(ano: int) -> date:
 
 
 def _feriados_moveis(ano: int) -> set[date]:
-    """Sexta-feira Santa e Corpus Christi (feriados nacionais móveis)."""
     pascoa = _pascoa(ano)
     return {
         pascoa - timedelta(days=2),   # Sexta-feira Santa
@@ -60,21 +69,18 @@ def _feriados_moveis(ano: int) -> set[date]:
 
 
 def eh_feriado(d: date) -> bool:
-    """Verifica se a data é feriado nacional."""
     if (d.month, d.day) in _FERIADOS_FIXOS:
         return True
     return d in _feriados_moveis(d.year)
 
 
 def eh_dia_util(d: date) -> bool:
-    """True se o dia é útil: segunda–sexta e não é feriado nacional."""
-    if d.weekday() >= 5:   # 5 = sábado, 6 = domingo
+    if d.weekday() >= 5:
         return False
     return not eh_feriado(d)
 
 
 def proximo_dia_util(d: date) -> date:
-    """Primeiro dia útil APÓS a data informada."""
     resultado = d + timedelta(days=1)
     while not eh_dia_util(resultado):
         resultado += timedelta(days=1)
@@ -82,10 +88,7 @@ def proximo_dia_util(d: date) -> date:
 
 
 def adicionar_dias_uteis(data_inicio: date, dias: int) -> date:
-    """
-    Conta `dias` dias úteis a partir de data_inicio, excluindo data_inicio.
-    Implementa Art. 224 CPC: exclui o primeiro dia, inclui o último.
-    """
+    """Conta `dias` dias úteis a partir de data_inicio (Art. 224 CPC)."""
     d = data_inicio
     contados = 0
     while contados < dias:
@@ -95,38 +98,149 @@ def adicionar_dias_uteis(data_inicio: date, dias: int) -> date:
     return d
 
 
+def adicionar_dias_corridos(data_inicio: date, dias: int) -> date:
+    """Conta `dias` dias corridos (calendário) a partir de data_inicio."""
+    return data_inicio + timedelta(days=dias)
+
+
 # ---------------------------------------------------------------------------
-# Mapeamento tipo de documento → prazo em dias úteis + base legal
+# Detecção de Juizado Especial
 # ---------------------------------------------------------------------------
-_PRAZOS: dict[str, tuple[int | None, str]] = {
-    "Sentença":  (15, "Apelação — Art. 1.003 c/c Art. 1.009 CPC"),
-    "Acórdão":   (15, "Recurso — Art. 1.003 CPC"),
-    "Decisão":   (15, "Agravo de instrumento ou manifestação — Art. 1.003 CPC"),
-    "Despacho":  (5,  "Manifestação — Art. 218 §3 CPC"),
-    "Certidão":  (5,  "Manifestação — Art. 218 §3 CPC"),
-    "Edital":    (None, "Prazo especificado no edital — verificar manualmente"),
+
+def _eh_juizado(nome_orgao: str | None) -> bool:
+    if not nome_orgao:
+        return False
+    n = nome_orgao.upper()
+    return "JUIZADO" in n
+
+
+def _eh_juizado_federal(nome_orgao: str | None) -> bool:
+    if not nome_orgao:
+        return False
+    n = nome_orgao.upper()
+    return "JUIZADO" in n and "FEDERAL" in n
+
+
+# ---------------------------------------------------------------------------
+# Tabelas de prazos
+# ---------------------------------------------------------------------------
+
+# CPC — dias úteis
+_PRAZOS_CPC: dict[str, tuple[int | None, str]] = {
+    "Sentença":            (15, "Apelação — Art. 1.003 c/c Art. 1.009 CPC"),
+    "Acórdão":             (15, "Recurso — Art. 1.003 CPC"),
+    "Decisão":             (15, "Agravo de instrumento ou manifestação — Art. 1.003 CPC"),
+    "Despacho":            (5,  "Manifestação — Art. 218 §3 CPC"),
+    "Certidão":            (5,  "Manifestação — Art. 218 §3 CPC"),
+    "Edital":              (None, "Prazo especificado no edital — verificar manualmente"),
 }
-_PRAZO_PADRAO: tuple[int, str] = (15, "Manifestação — Art. 218 §3 CPC")
+_PRAZO_PADRAO_CPC: tuple[int, str] = (15, "Manifestação — Art. 218 §3 CPC")
+
+# Juizado Especial Cível — dias corridos (Lei 9.099/95)
+_PRAZOS_JUIZADO: dict[str, tuple[int | None, str]] = {
+    "Sentença":            (10, "Recurso inominado — Art. 41 Lei 9.099/95 (dias corridos)"),
+    "Acórdão":             (10, "Recurso — Art. 41 Lei 9.099/95 (dias corridos)"),
+    "Decisão":             (10, "Recurso — Art. 41 Lei 9.099/95 (dias corridos)"),
+    "Despacho":            (5,  "Embargos de declaração — Art. 49 Lei 9.099/95 (dias corridos)"),
+    "Certidão":            (5,  "Manifestação — Art. 49 Lei 9.099/95 (dias corridos)"),
+    "Edital":              (None, "Prazo especificado no edital — verificar manualmente"),
+}
+_PRAZO_PADRAO_JUIZADO: tuple[int, str] = (10, "Manifestação — Art. 41 Lei 9.099/95 (dias corridos)")
+
+# Classes que indicam cumprimento de sentença (prazo diferente)
+_CLASSES_CUMPRIMENTO = {"CUMPRIMENTO DE SENTENÇA", "CUMPRIMENTO DE SENTENCA",
+                         "EXECUÇÃO DE TÍTULO EXTRAJUDICIAL", "EXECUCAO DE TITULO EXTRAJUDICIAL"}
 
 
-def calcular_prazo(data_disponibilizacao: date, tipo_documento: str | None) -> dict:
+# ---------------------------------------------------------------------------
+# Extração de prazo mencionado no texto (regex — determinístico)
+# ---------------------------------------------------------------------------
+
+_RE_PRAZO = re.compile(
+    r'(?:prazo\s+de\s+|no\s+prazo\s+de\s+|fixo\s+o\s+prazo\s+de\s+)'
+    r'(\d+)\s*(?:\([^)]+\)\s*)?\s*dias?',
+    re.IGNORECASE,
+)
+
+
+def extrair_prazo_texto(texto: str | None) -> int | None:
     """
-    Calcula prazo processual conforme CPC.
+    Extrai o primeiro prazo em dias mencionado explicitamente no texto.
+    Retorna None se não encontrar. Resultado é determinístico (regex puro).
+    """
+    if not texto:
+        return None
+    m = _RE_PRAZO.search(texto)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Função principal
+# ---------------------------------------------------------------------------
+
+def calcular_prazo(
+    data_disponibilizacao: date,
+    tipo_documento: str | None,
+    nome_classe: str | None = None,
+    nome_orgao: str | None = None,
+    texto: str | None = None,
+) -> dict:
+    """
+    Calcula prazo processual.
 
     Parâmetros:
         data_disponibilizacao : data em que a publicação saiu no DJe
         tipo_documento        : tipo do ato (Sentença, Decisão, Despacho…)
+        nome_classe           : classe processual (ex: CUMPRIMENTO DE SENTENÇA)
+        nome_orgao            : nome do órgão julgador (detecta Juizado)
+        texto                 : texto da publicação para extração de prazo
 
-    Retorna:
-        data_intimacao  — 1º dia útil após publicação (Art. 231 I)
-        data_fim_prazo  — último dia do prazo (None se indeterminado)
-        dias_uteis      — quantidade de dias úteis (None se indeterminado)
-        base_legal      — dispositivo do CPC aplicado
+    Retorna dict com:
+        data_intimacao        — 1º dia útil após publicação (Art. 231 I)
+        data_fim_prazo        — último dia do prazo (None se indeterminado)
+        dias_uteis            — quantidade de dias do prazo
+        base_legal            — dispositivo legal aplicado
+        prazo_no_texto        — dias mencionados no texto (None se não encontrado)
+        eh_juizado            — True se Juizado Especial detectado
+        dias_corridos         — True se prazo em dias corridos (Juizado)
     """
-    dias, base_legal = _PRAZOS.get(tipo_documento or "", _PRAZO_PADRAO)
+    juizado = _eh_juizado(nome_orgao)
+    prazo_no_texto = extrair_prazo_texto(texto)
 
-    # Art. 231 I: intimação realizada no 1º dia útil após disponibilização no DJe
+    # Art. 231 I: intimação no 1º dia útil após disponibilização
     data_intimacao = proximo_dia_util(data_disponibilizacao)
+
+    if juizado:
+        dias, base_legal = _PRAZOS_JUIZADO.get(tipo_documento or "", _PRAZO_PADRAO_JUIZADO)
+        # Se o texto menciona prazo explícito, usa ele (mais confiável)
+        if prazo_no_texto is not None:
+            dias = prazo_no_texto
+            base_legal = f"Prazo de {dias} dias mencionado no texto — verificar base legal"
+        if dias is None:
+            return {
+                "data_intimacao": data_intimacao,
+                "data_fim_prazo": None,
+                "dias_uteis": None,
+                "base_legal": base_legal,
+                "prazo_no_texto": prazo_no_texto,
+                "eh_juizado": True,
+                "dias_corridos": True,
+            }
+        data_fim = adicionar_dias_corridos(data_intimacao, dias)
+        return {
+            "data_intimacao": data_intimacao,
+            "data_fim_prazo": data_fim,
+            "dias_uteis": dias,
+            "base_legal": base_legal,
+            "prazo_no_texto": prazo_no_texto,
+            "eh_juizado": True,
+            "dias_corridos": True,
+        }
+
+    # CPC comum — dias úteis
+    dias, base_legal = _PRAZOS_CPC.get(tipo_documento or "", _PRAZO_PADRAO_CPC)
 
     if dias is None:
         return {
@@ -134,14 +248,18 @@ def calcular_prazo(data_disponibilizacao: date, tipo_documento: str | None) -> d
             "data_fim_prazo": None,
             "dias_uteis": None,
             "base_legal": base_legal,
+            "prazo_no_texto": prazo_no_texto,
+            "eh_juizado": False,
+            "dias_corridos": False,
         }
 
-    # Art. 224: exclui data_intimacao, conta dias a partir do dia seguinte
     data_fim = adicionar_dias_uteis(data_intimacao, dias)
-
     return {
         "data_intimacao": data_intimacao,
         "data_fim_prazo": data_fim,
         "dias_uteis": dias,
         "base_legal": base_legal,
+        "prazo_no_texto": prazo_no_texto,
+        "eh_juizado": False,
+        "dias_corridos": False,
     }

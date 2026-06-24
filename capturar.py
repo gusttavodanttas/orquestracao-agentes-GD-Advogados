@@ -371,7 +371,12 @@ def upsert_prazo(
         return
 
     tipo_doc = bruto.get("tipoDocumento")
-    prazo = prazo_calculado or calcular_prazo(data_disp, tipo_doc)
+    prazo = prazo_calculado or calcular_prazo(
+        data_disp, tipo_doc,
+        nome_classe=bruto.get("nomeClasse"),
+        nome_orgao=bruto.get("nomeOrgao"),
+        texto=pub.get("texto_limpo"),
+    )
 
     numero_processo = (
         bruto.get("numero_processo")
@@ -392,6 +397,9 @@ def upsert_prazo(
         ),
         "dias_uteis": prazo["dias_uteis"],
         "base_legal": prazo["base_legal"],
+        "prazo_no_texto": prazo.get("prazo_no_texto"),
+        "eh_juizado": prazo.get("eh_juizado", False),
+        "dias_corridos": prazo.get("dias_corridos", False),
     }
 
     url = f"{SUPABASE_URL}/rest/v1/prazos?on_conflict=publicacao_id"
@@ -554,6 +562,9 @@ def main(dias: int = 15) -> None:
                     prazo_info = calcular_prazo(
                         date.fromisoformat(data_disp_str),
                         item.get("tipoDocumento"),
+                        nome_classe=item.get("nomeClasse"),
+                        nome_orgao=item.get("nomeOrgao"),
+                        texto=texto_limpo,
                     )
                 except ValueError:
                     pass

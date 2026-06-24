@@ -286,13 +286,36 @@ def cb_ver_teor(call):
     prazo_bloco = ""
     if prazo:
         dias = dias_uteis_restantes(prazo.get("data_fim_prazo"))
-        rotulo = "VENCIDO" if dias is not None and dias < 0 else (f"{dias} dias úteis restantes" if dias is not None else "")
+        if dias is None:
+            status_prazo = "indeterminado"
+        elif dias < 0:
+            status_prazo = f"⚠️ VENCIDO há {abs(dias)} dias"
+        elif dias <= 3:
+            status_prazo = f"🔴 {dias} dia(s) restante(s)"
+        elif dias <= 7:
+            status_prazo = f"🟡 {dias} dias restantes"
+        else:
+            status_prazo = f"🟢 {dias} dias restantes"
+
+        tipo_dias = "dias corridos" if prazo.get("dias_corridos") else "dias úteis"
+        juizado_aviso = " _(Juizado Especial)_" if prazo.get("eh_juizado") else ""
+
+        prazo_no_texto = prazo.get("prazo_no_texto")
+        alerta_divergencia = ""
+        if prazo_no_texto and prazo_no_texto != prazo.get("dias_uteis"):
+            alerta_divergencia = (
+                f"\n⚠️ *Atenção:* texto menciona *{prazo_no_texto} dias* "
+                f"mas sistema calculou *{prazo.get('dias_uteis')} {tipo_dias}* — confira manualmente"
+            )
+
         prazo_bloco = (
-            f"\n📅 *Prazo:*\n"
+            f"\n📅 *Prazo:{juizado_aviso}*\n"
             f"Intimação: {fmt_data(prazo.get('data_intimacao'))}\n"
-            f"Vencimento: {fmt_data(prazo.get('data_fim_prazo'))} — {prazo.get('dias_uteis','?')} dias úteis CPC\n"
-            f"Status: {rotulo}\n"
-            f"Base legal: _{prazo.get('base_legal','?')}_\n"
+            f"Vencimento: {fmt_data(prazo.get('data_fim_prazo'))} "
+            f"({prazo.get('dias_uteis','?')} {tipo_dias})\n"
+            f"Status: {status_prazo}\n"
+            f"Base legal: _{prazo.get('base_legal','?')}_"
+            f"{alerta_divergencia}\n"
         )
 
     teor = (p.get("texto_limpo") or "").strip()
