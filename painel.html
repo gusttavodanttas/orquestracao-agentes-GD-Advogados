@@ -337,7 +337,10 @@ tr.clickable:hover td{background:#f0f4fa}
       <div class="tab" id="tab-processos">
         <div class="section-head">
           <div><div class="section-title">Processos</div><div class="section-sub">Processos vinculados ao escritório</div></div>
-          <button class="btn btn-blue" onclick="abrirModalProcesso()">+ Novo processo</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="btn-relinkar" onclick="relinkarPublicacoes()">⟳ Relinkar publicações</button>
+            <button class="btn btn-blue" onclick="abrirModalProcesso()">+ Novo processo</button>
+          </div>
         </div>
         <div class="filters">
           <input type="text" id="f-proc-busca" placeholder="Buscar número ou cliente…" oninput="renderProcessos()">
@@ -828,6 +831,31 @@ function renderProcessos(){
   </tr>`).join(''):'<tr><td colspan="7" class="empty">Nenhum processo encontrado.</td></tr>'
 }
 window.renderProcessos=renderProcessos
+
+window.relinkarPublicacoes=async function(){
+  const btn=document.getElementById('btn-relinkar')
+  btn.disabled=true; btn.textContent='⟳ Relinkando…'
+  let vinculados=0
+  // Busca todas as publicações sem cliente_id
+  const {data:pubs}=await sb.from('publicacoes')
+    .select('id,numero_processo')
+    .eq('escritorio_id',ESC_ID)
+    .is('cliente_id',null)
+  if(pubs&&pubs.length){
+    for(const pub of pubs){
+      if(!pub.numero_processo)continue
+      const normPub=pub.numero_processo.replace(/\D/g,'')
+      const proc=PROCESSOS.find(p=>p.numero_processo.replace(/\D/g,'')==normPub)
+      if(proc){
+        await sb.from('publicacoes').update({cliente_id:proc.cliente_id,polo:proc.polo}).eq('id',pub.id)
+        vinculados++
+      }
+    }
+  }
+  btn.disabled=false; btn.textContent='⟳ Relinkar publicações'
+  alert(vinculados>0?`✅ ${vinculados} publicação(ões) vinculada(s) com sucesso.`:'Nenhuma publicação nova para vincular.')
+  if(vinculados>0)renderDJEN()
+}
 
 window.abrirModalProcesso=function(){
   const sel=document.getElementById('np-cliente')
