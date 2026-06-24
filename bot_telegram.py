@@ -347,10 +347,130 @@ def cb_ver_teor(call):
 def cb_confirmar_prazo(call):
     if not autorizado(call.message.chat.id):
         return
-    bot.answer_callback_query(call.id, "✅ Registrado!")
+    pub_id = call.data.split("|", 1)[1]
+    bot.answer_callback_query(call.id)
+
+    prazos = sb_get("prazos", {
+        "publicacao_id": f"eq.{pub_id}",
+        "select": "id,data_fim_prazo,dias_uteis,base_legal,confirmado_em,data_fim_confirmada,dias_corridos",
+        "limit": "1",
+    })
+    if not prazos:
+        bot.send_message(CHAT_ID, "Prazo não encontrado para esta publicação.")
+        return
+
+    prazo = prazos[0]
+    prazo_id = prazo["id"]
+    ja_confirmado = prazo.get("confirmado_em")
+    data_fim = prazo.get("data_fim_confirmada") or prazo.get("data_fim_prazo")
+    tipo_dias = "dias corridos" if prazo.get("dias_corridos") else "dias úteis"
+
+    if ja_confirmado:
+        bot.send_message(
+            CHAT_ID,
+            f"✅ Prazo já confirmado em {fmt_data(ja_confirmado[:10])}.\n"
+            f"Vencimento: *{fmt_data(data_fim)}*",
+            parse_mode="Markdown",
+        )
+        return
+
+    kb = InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        InlineKeyboardButton("✅ Confirmar", callback_data=f"conf_ok|{prazo_id}"),
+        InlineKeyboardButton("✏️ Ajustar data", callback_data=f"conf_adj|{prazo_id}"),
+    )
     bot.send_message(
         CHAT_ID,
-        "✅ Prazo confirmado. Acompanhe o calendário no painel.",
+        f"📅 *Confirmar prazo?*\n"
+        f"Vencimento calculado: *{fmt_data(data_fim)}*\n"
+        f"({prazo.get('dias_uteis','?')} {tipo_dias})\n"
+        f"Base legal: _{prazo.get('base_legal','?')}_",
+        parse_mode="Markdown",
+        reply_markup=kb,
+    )
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("conf_ok|"))
+def cb_conf_ok(call):
+    if not autorizado(call.message.chat.id):
+        return
+    prazo_id = call.data.split("|", 1)[1]
+    from datetime import datetime, timezone
+    agora = datetime.now(timezone.utc).isoformat()
+    try:
+        requests.patch(
+            f"{SUPABASE_URL}/rest/v1/prazos?id=eq.{prazo_id}",
+            headers=_sb_headers(),
+            json={"confirmado_em": agora, "confirmado_via": "telegram"},
+            timeout=10,
+        )
+    except Exception as exc:
+        log.warning("Erro ao confirmar prazo: %s", exc)
+    bot.answer_callback_query(call.id, "✅ Prazo confirmado!")
+    bot.edit_message_reply_markup(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        reply_markup=None,
+    )
+    bot.send_message(CHAT_ID, "✅ *Prazo confirmado* e registrado no sistema.", parse_mode="Markdown")
+
+
+# Estado aguardando data ajustada: {prazo_id: True}
+_aguardando_data: dict[str, bool] = {}
+
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("conf_adj|"))
+def cb_conf_adj(call):
+    if not autorizado(call.message.chat.id):
+        return
+    prazo_id = call.data.split("|", 1)[1]
+    _aguardando_data[prazo_id] = True
+    bot.answer_callback_query(call.id)
+    bot.edit_message_reply_markup(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        reply_markup=None,
+    )
+    msg = bot.send_message(
+        CHAT_ID,
+        f"✏️ Digite a data correta de vencimento no formato *DD/MM/AAAA*:\n"
+        f"_(ID do prazo: `{prazo_id}`)_",
+        parse_mode="Markdown",
+    )
+    bot.register_next_step_handler(msg, _receber_data_ajustada, prazo_id)
+
+
+def _receber_data_ajustada(msg, prazo_id: str):
+    if not autorizado(msg.chat.id):
+        return
+    _aguardando_data.pop(prazo_id, None)
+    texto = (msg.text or "").strip()
+    try:
+        from datetime import datetime, timezone
+        data_nova = datetime.strptime(texto, "%d/%m/%Y").date()
+    except ValueError:
+        bot.send_message(CHAT_ID, "❌ Formato inválido. Use DD/MM/AAAA (ex: 30/06/2026).")
+        return
+    agora = datetime.now(timezone.utc).isoformat()
+    try:
+        requests.patch(
+            f"{SUPABASE_URL}/rest/v1/prazos?id=eq.{prazo_id}",
+            headers=_sb_headers(),
+            json={
+                "data_fim_confirmada": data_nova.isoformat(),
+                "confirmado_em": agora,
+                "confirmado_via": "telegram_ajustado",
+            },
+            timeout=10,
+        )
+    except Exception as exc:
+        log.warning("Erro ao ajustar prazo: %s", exc)
+        bot.send_message(CHAT_ID, "⚠️ Erro ao salvar a data ajustada.")
+        return
+    bot.send_message(
+        CHAT_ID,
+        f"✅ *Prazo ajustado* para *{data_nova.strftime('%d/%m/%Y')}* e confirmado.",
+        parse_mode="Markdown",
     )
 
 
