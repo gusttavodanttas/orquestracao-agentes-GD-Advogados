@@ -195,7 +195,7 @@ def cmd_publicacoes(msg):
 
     pubs = sb_get("publicacoes", {
         "escritorio_id": f"eq.{ESCRITORIO_ID}",
-        "select": "id,numero_processo,tipo_documento,data_disponibilizacao,tribunal",
+        "select": "id,numero_processo,tipo_documento,data_disponibilizacao,tribunal,visto_em",
         "order": "data_disponibilizacao.desc",
         "limit": "5",
     })
@@ -226,9 +226,10 @@ def cmd_publicacoes(msg):
         else:
             prazo_linha = f"🟢 Prazo: {fmt_data(prazo['data_fim_prazo'])} — {dias} dias úteis"
 
+        visto = "✅ Tratado" if p.get("visto_em") else "🔵 Pendente"
         texto = (
-            f"📋 `{p.get('numero_processo','?')}`\n"
-            f"Tipo: {p.get('tipo_documento','?')}\n"
+            f"{'✅' if p.get('visto_em') else '📋'} `{p.get('numero_processo','?')}`\n"
+            f"Tipo: {p.get('tipo_documento','?')} | {visto}\n"
             f"Data: {fmt_data(p.get('data_disponibilizacao'))} | {p.get('tribunal','?')}\n"
             f"{prazo_linha}"
         )
@@ -264,18 +265,44 @@ def cb_ver_teor(call):
     pub_id = call.data.split("|", 1)[1]
     pubs = sb_get("publicacoes", {
         "id": f"eq.{pub_id}",
-        "select": "texto_limpo,numero_processo,tipo_documento,tribunal,data_disponibilizacao",
+        "select": "texto_limpo,numero_processo,tipo_documento,tribunal,data_disponibilizacao,visto_em",
     })
     bot.answer_callback_query(call.id)
     if not pubs:
         bot.send_message(CHAT_ID, "Publicação não encontrada.")
         return
     p = pubs[0]
+
+    prazos = sb_get("prazos", {
+        "publicacao_id": f"eq.{pub_id}",
+        "select": "data_intimacao,data_fim_prazo,dias_uteis,base_legal",
+        "limit": "1",
+    })
+    prazo = prazos[0] if prazos else None
+
+    visto_em = p.get("visto_em")
+    visto_linha = f"\n✅ _Tratado em {fmt_data(visto_em[:10]) if visto_em else '?'}_" if visto_em else ""
+
+    prazo_bloco = ""
+    if prazo:
+        dias = dias_uteis_restantes(prazo.get("data_fim_prazo"))
+        rotulo = "VENCIDO" if dias is not None and dias < 0 else (f"{dias} dias úteis restantes" if dias is not None else "")
+        prazo_bloco = (
+            f"\n📅 *Prazo:*\n"
+            f"Intimação: {fmt_data(prazo.get('data_intimacao'))}\n"
+            f"Vencimento: {fmt_data(prazo.get('data_fim_prazo'))} — {prazo.get('dias_uteis','?')} dias úteis CPC\n"
+            f"Status: {rotulo}\n"
+            f"Base legal: _{prazo.get('base_legal','?')}_\n"
+        )
+
     teor = (p.get("texto_limpo") or "").strip()
     cabecalho = (
         f"📄 *{p.get('tipo_documento','')}*\n"
         f"Processo: `{p.get('numero_processo','')}`\n"
-        f"Tribunal: {p.get('tribunal','')} | {p.get('data_disponibilizacao','')}\n\n"
+        f"Tribunal: {p.get('tribunal','')} | {fmt_data(p.get('data_disponibilizacao'))}"
+        f"{visto_linha}"
+        f"{prazo_bloco}\n"
+        f"{'─' * 20}\n"
     )
     limite = 4000 - len(cabecalho)
     if len(teor) > limite:
@@ -316,6 +343,18 @@ def cb_orquestrador(call):
 def cb_visto(call):
     if not autorizado(call.message.chat.id):
         return
+    pub_id = call.data.split("|", 1)[1]
+    from datetime import datetime, timezone
+    agora = datetime.now(timezone.utc).isoformat()
+    try:
+        requests.patch(
+            f"{SUPABASE_URL}/rest/v1/publicacoes?id=eq.{pub_id}",
+            headers=_sb_headers(),
+            json={"visto_em": agora, "visto_via": "telegram"},
+            timeout=10,
+        )
+    except Exception as exc:
+        log.warning("Erro ao marcar visto: %s", exc)
     bot.answer_callback_query(call.id, "✅ Marcado como visto!")
     bot.edit_message_reply_markup(
         chat_id=call.message.chat.id,
