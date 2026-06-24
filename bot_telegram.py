@@ -33,6 +33,29 @@ if not TOKEN or not CHAT_ID:
     print("TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID são obrigatórios no .env")
     sys.exit(1)
 
+
+def fmt_data(iso: str | None) -> str:
+    """Converte YYYY-MM-DD para DD/MM/YYYY."""
+    if not iso:
+        return "?"
+    try:
+        d = date.fromisoformat(iso)
+        return d.strftime("%d/%m/%Y")
+    except ValueError:
+        return iso
+
+
+def dias_uteis_restantes(data_fim_iso: str | None) -> int | None:
+    if not data_fim_iso:
+        return None
+    try:
+        fim = date.fromisoformat(data_fim_iso)
+        hoje = date.today()
+        delta = (fim - hoje).days
+        return delta
+    except ValueError:
+        return None
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -150,12 +173,12 @@ def cmd_urgentes(msg):
     bot.send_message(CHAT_ID, f"🚨 *{len(urgentes)} prazo(s) urgente(s):*", parse_mode="Markdown")
 
     for p, dias in urgentes:
-        rotulo = "🔴 VENCIDO" if dias < 0 else f"⚠️ {abs(dias)} dia(s)"
+        rotulo = "🔴 VENCIDO" if dias < 0 else f"⚠️ {abs(dias)} dia(s) útil(eis)"
         texto = (
             f"{rotulo}\n"
             f"Processo: `{p.get('numero_processo','?')}`\n"
             f"Tipo: {p.get('tipo_prazo','?')}\n"
-            f"Vence: {p.get('data_fim_prazo','?')}"
+            f"Vence: {fmt_data(p.get('data_fim_prazo'))}"
         )
         kb = _kb_publicacao(p.get("publicacao_id", ""))
         bot.send_message(CHAT_ID, texto, parse_mode="Markdown", reply_markup=kb)
@@ -184,10 +207,30 @@ def cmd_publicacoes(msg):
     bot.send_message(CHAT_ID, f"📋 *Últimas {len(pubs)} publicações:*", parse_mode="Markdown")
 
     for p in pubs:
+        prazos = sb_get("prazos", {
+            "publicacao_id": f"eq.{p['id']}",
+            "select": "data_fim_prazo,dias_uteis,base_legal",
+            "limit": "1",
+        })
+        prazo = prazos[0] if prazos else None
+        dias = dias_uteis_restantes(prazo["data_fim_prazo"]) if prazo else None
+
+        if dias is None:
+            prazo_linha = "Prazo: não calculado"
+        elif dias < 0:
+            prazo_linha = f"⚠️ Prazo: VENCIDO ({fmt_data(prazo['data_fim_prazo'])})"
+        elif dias <= 3:
+            prazo_linha = f"🔴 Prazo: {fmt_data(prazo['data_fim_prazo'])} — {dias} dia(s) útil(eis)"
+        elif dias <= 7:
+            prazo_linha = f"🟡 Prazo: {fmt_data(prazo['data_fim_prazo'])} — {dias} dias úteis"
+        else:
+            prazo_linha = f"🟢 Prazo: {fmt_data(prazo['data_fim_prazo'])} — {dias} dias úteis"
+
         texto = (
             f"📋 `{p.get('numero_processo','?')}`\n"
             f"Tipo: {p.get('tipo_documento','?')}\n"
-            f"Data: {p.get('data_disponibilizacao','?')} | {p.get('tribunal','?')}"
+            f"Data: {fmt_data(p.get('data_disponibilizacao'))} | {p.get('tribunal','?')}\n"
+            f"{prazo_linha}"
         )
         kb = _kb_publicacao(p["id"])
         bot.send_message(CHAT_ID, texto, parse_mode="Markdown", reply_markup=kb)
