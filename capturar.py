@@ -425,6 +425,58 @@ def upsert_prazo(
 
 
 # ---------------------------------------------------------------------------
+# Vínculo automático cliente ↔ publicação
+# ---------------------------------------------------------------------------
+
+def _norm_processo(numero: str | None) -> str:
+    """Remove tudo que não for dígito para comparar números de processo."""
+    return "".join(c for c in (numero or "") if c.isdigit())
+
+
+def _vincular_cliente(sessao: requests.Session, pub_id: str, pub: dict) -> None:
+    """
+    Busca na tabela `processos` pelo número do processo da publicação.
+    Se encontrar, atualiza a publicação com cliente_id e polo.
+    """
+    bruto = pub["dados_brutos"]
+    numero_raw = (
+        bruto.get("numero_processo")
+        or bruto.get("numeroprocessocommascara")
+        or ""
+    )
+    numero_norm = _norm_processo(numero_raw)
+    if not numero_norm:
+        return
+
+    # Busca todos os processos do escritório e compara dígitos
+    resp = sessao.get(
+        f"{SUPABASE_URL}/rest/v1/processos",
+        params={
+            "escritorio_id": f"eq.{ESCRITORIO_ID}",
+            "select": "id,numero_processo,cliente_id,polo",
+        },
+        headers=_sb_headers({"Accept": "application/json"}),
+        timeout=15,
+    )
+    if not resp.ok:
+        return
+
+    for proc in resp.json():
+        if _norm_processo(proc.get("numero_processo")) == numero_norm:
+            sessao.patch(
+                f"{SUPABASE_URL}/rest/v1/publicacoes?id=eq.{pub_id}",
+                json={"cliente_id": proc["cliente_id"], "polo": proc["polo"]},
+                headers=_sb_headers(),
+                timeout=10,
+            )
+            log.info(
+                "Publicação %s vinculada ao processo %s (polo: %s)",
+                pub_id, numero_raw, proc["polo"],
+            )
+            return
+
+
+# ---------------------------------------------------------------------------
 # Notificação via Telegram Bot (API oficial, gratuita)
 # ---------------------------------------------------------------------------
 
@@ -586,6 +638,7 @@ def main(dias: int = 15) -> None:
             if _SUPABASE_CONFIGURADO:
                 pub_id = upsert_publicacao(sessao, registro)
                 if pub_id:
+                    _vincular_cliente(sessao, pub_id, registro)
                     upsert_prazo(sessao, registro, pub_id, prazo_calculado=prazo_info)
                     # Cria tarefa no despacho para prazos urgentes e de atenção
                     if prazo_info and dias_restantes is not None and dias_restantes <= DIAS_ATENCAO:

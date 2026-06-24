@@ -265,7 +265,7 @@ def cb_ver_teor(call):
     pub_id = call.data.split("|", 1)[1]
     pubs = sb_get("publicacoes", {
         "id": f"eq.{pub_id}",
-        "select": "texto_limpo,numero_processo,tipo_documento,tribunal,data_disponibilizacao,visto_em",
+        "select": "texto_limpo,numero_processo,tipo_documento,tribunal,data_disponibilizacao,visto_em,polo,cliente_id",
     })
     bot.answer_callback_query(call.id)
     if not pubs:
@@ -279,6 +279,15 @@ def cb_ver_teor(call):
         "limit": "1",
     })
     prazo = prazos[0] if prazos else None
+
+    # Cliente vinculado
+    cliente_linha = ""
+    if p.get("cliente_id"):
+        clientes = sb_get("clientes", {"id": f"eq.{p['cliente_id']}", "select": "nome", "limit": "1"})
+        if clientes:
+            polo_labels = {"reu": "Réu", "autor": "Autor", "assistente": "Assistente"}
+            polo = polo_labels.get(p.get("polo", ""), p.get("polo", ""))
+            cliente_linha = f"\n👤 *Cliente:* {clientes[0]['nome']} _({polo})_"
 
     visto_em = p.get("visto_em")
     visto_linha = f"\n✅ _Tratado em {fmt_data(visto_em[:10]) if visto_em else '?'}_" if visto_em else ""
@@ -323,6 +332,7 @@ def cb_ver_teor(call):
         f"📄 *{p.get('tipo_documento','')}*\n"
         f"Processo: `{p.get('numero_processo','')}`\n"
         f"Tribunal: {p.get('tribunal','')} | {fmt_data(p.get('data_disponibilizacao'))}"
+        f"{cliente_linha}"
         f"{visto_linha}"
         f"{prazo_bloco}\n"
         f"{'─' * 20}\n"
