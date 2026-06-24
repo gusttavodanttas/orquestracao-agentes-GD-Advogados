@@ -374,8 +374,7 @@ def cb_confirmar_prazo(call):
     pub_info = pubs[0] if pubs else {}
     numero = pub_info.get("numero_processo") or prazo.get("numero_processo") or "?"
     tipo_doc = pub_info.get("tipo_documento") or "?"
-    teor_raw = (pub_info.get("texto_limpo") or "").strip()
-    teor_resumo = teor_raw[:300] + "…" if len(teor_raw) > 300 else teor_raw
+    teor = (pub_info.get("texto_limpo") or "").strip()
 
     if ja_confirmado:
         bot.send_message(
@@ -392,18 +391,22 @@ def cb_confirmar_prazo(call):
         InlineKeyboardButton("✅ Confirmar", callback_data=f"conf_ok|{prazo_id}"),
         InlineKeyboardButton("✏️ Ajustar data", callback_data=f"conf_adj|{prazo_id}"),
     )
+    # Mensagem 1: cabeçalho + botões
     bot.send_message(
         CHAT_ID,
         f"📅 *Confirmar prazo?*\n"
         f"Processo: `{numero}` — {tipo_doc}\n"
         f"Vencimento calculado: *{fmt_data(data_fim)}*\n"
         f"({prazo.get('dias_uteis','?')} {tipo_dias})\n"
-        f"Base legal: _{prazo.get('base_legal','?')}_\n"
-        f"{'─' * 20}\n"
-        f"{teor_resumo}",
+        f"Base legal: _{prazo.get('base_legal','?')}_",
         parse_mode="Markdown",
         reply_markup=kb,
     )
+    # Mensagem 2: teor completo (dividido se passar de 4000 chars)
+    if teor:
+        partes = [teor[i:i+4000] for i in range(0, len(teor), 4000)]
+        for parte in partes:
+            bot.send_message(CHAT_ID, parte)
 
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("conf_ok|"))
